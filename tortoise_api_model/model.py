@@ -25,7 +25,8 @@ class PointField(Field[Point]):
 
 class PolygonField(Field[Polygon]):
     SQL_TYPE = "POLYGON"
-    field_type = Point
+    field_type = Polygon
+    base_field = PointField
 
     def to_python_value(self, value):
         if value is not None and not isinstance(value, Polygon):
