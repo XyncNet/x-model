@@ -1,6 +1,6 @@
 from asyncpg import Point, Polygon, Range
 from tortoise import Model as BaseModel
-from tortoise.fields import Field
+from tortoise.fields import Field, IntField, FloatField
 from tortoise.fields.base import VALUE
 
 
@@ -14,22 +14,45 @@ class Model(BaseModel):
 
 
 # Custom Fields
-class SeqField(Field[VALUE]):
+class ListField(Field[VALUE]):
+    base_field = Field[VALUE]
+    labels: tuple
+
+    # def __getattr__(self, attr):
+    #     return None
+
     def to_python_value(self, value):
         if value is not None and not isinstance(value, self.field_type):
             value = self.field_type(*value)
         self.validate(value)
         return value
 
-class RangeField(SeqField[Range]):
-    SQL_TYPE = "int4range"
-    field_type = Range
+class CollectionField(ListField[VALUE]):
+    labels: tuple
+    step: str = None
 
-class PointField(SeqField[Point]):
+    def __new__(cls, precision: int = 0, *args, **kwargs):
+        if precision:
+            cls.step = f"0.{'0'*(precision-1)}1"
+        cls.base_field = FloatField if precision else IntField
+        return super().__new__(cls)
+
+
+class RangeField(CollectionField[Range]):
+    field_type = Range
+    labels = ("from", "to")
+
+    def __new__(cls, precision: int = 0, *args, **kwargs):
+        cls.SQL_TYPE = "numrange" if precision else "int4range"
+        return super().__new__(cls)
+
+class PointField(CollectionField[Point]):
     SQL_TYPE = "POINT"
     field_type = Point
+    base_field = FloatField
+    labels = ("lat", "lon")
 
-class PolygonField(SeqField[Polygon]):
+class PolygonField(ListField[Polygon]):
     SQL_TYPE = "POLYGON"
     field_type = Polygon
     base_field = PointField
