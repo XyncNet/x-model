@@ -46,6 +46,12 @@ class RangeField(CollectionField[Range]):
         cls.SQL_TYPE = "numrange" if precision else "int4range"
         return super().__new__(cls)
 
+    def to_python_value(self, value):
+        if value is not None and not isinstance(value, self.field_type):
+            value = self.field_type(*[float(v) for v in value])
+        self.validate(value)
+        return value
+
 class PointField(CollectionField[Point]):
     SQL_TYPE = "POINT"
     field_type = Point
