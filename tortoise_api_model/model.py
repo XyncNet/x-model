@@ -34,21 +34,23 @@ class Model(BaseModel):
         cls._options = res
 
     @classmethod
-    async def upsert(cls, data: dict):
+    async def upsert(cls, data: dict, oid = None):
         meta: MetaInfo = cls._meta
 
         # pop fields for relations from general data dict
-        m2ms = {k: data.pop(k) for k in cls._meta.m2m_fields if k in data}
-        bfks = {k: data.pop(k) for k in cls._meta.backward_fk_fields if k in data}
-        bo2os = {k: data.pop(k) for k in cls._meta.backward_o2o_fields if k in data}
+        m2ms = {k: data.pop(k) for k in meta.m2m_fields if k in data}
+        bfks = {k: data.pop(k) for k in meta.backward_fk_fields if k in data}
+        bo2os = {k: data.pop(k) for k in meta.backward_o2o_fields if k in data}
 
         # save general model
-        if pk := meta.pk_attr in data.keys():
-            unq = {pk: data.pop(pk)}
-        else:
-            unq = {key: data.pop(key) for key, ft in meta.fields_map.items() if ft.unique and key in data.keys()}
-        # unq = meta.unique_together
-        obj, is_created = await cls.update_or_create(data, **unq)
+
+        # if pk := meta.pk_attr in data.keys():
+        #     unq = {pk: data.pop(pk)}
+        # else:
+        #     unq = {key: data.pop(key) for key, ft in meta.fields_map.items() if ft.unique and key in data.keys()}
+        # # unq = meta.unique_together
+        # obj, is_created = await cls.update_or_create(data, **unq)
+        obj, cr = await cls.create(**data), True if oid else await cls.update_or_create(data, **{meta.pk_attr: oid})
 
         # save relations
         for k, ids in m2ms.items():
