@@ -4,15 +4,20 @@ from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntFie
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation
 from tortoise.fields.data import IntEnumFieldInstance, CharEnumFieldInstance
 from tortoise.fields.relational import BackwardFKRelation, ForeignKeyFieldInstance, ManyToManyFieldInstance, \
-    OneToOneFieldInstance, BackwardOneToOneRelation
+    OneToOneFieldInstance, BackwardOneToOneRelation, RelationalField, ReverseRelation
+from tortoise.models import MetaInfo
+from tortoise.queryset import QuerySet
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
-from tortoise_api_model.fields import RelationalField
 
 
 class Model(BaseModel):
     # id: int = IntField(pk=True)
     _name: str = 'name'
+    _icon: str  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
+    _order: int = 1
+    _options: {str: {int: str}}
+    # _parent_model: str = None # todo: for dropdowns
 
     def repr(self):
         if self._name in self._meta.db_fields:
@@ -20,7 +25,48 @@ class Model(BaseModel):
         return self.__repr__()
 
     @classmethod
-    async def field_input_map(cls) -> dict:
+    async def load_rel_options(cls):
+        res = {}
+        for fk in cls._meta.fetch_fields:
+            field: RelationalField = cls._meta.fields_map[fk]
+            first: {str: str} = {'': 'Empty'} if field.null else {}
+            res[fk] = {**first, **{x.pk: x.repr() for x in await field.related_model.all()}}
+        cls._options = res
+
+    async def upsert(self, data: dict):
+        meta: MetaInfo = self._meta
+
+        # pop fields for relations from general data dict
+        m2ms = {k: data.pop(k) for k in self._meta.m2m_fields if k in data}
+        bfks = {k: data.pop(k) for k in self._meta.backward_fk_fields if k in data}
+        bo2os = {k: data.pop(k) for k in self._meta.backward_o2o_fields if k in data}
+
+        # save general model
+        if pk := meta.pk_attr in data.keys():
+            unq = {pk: data.pop(pk)}
+        else:
+            unq = {key: data.pop(key) for key, ft in meta.fields_map.items() if ft.unique and key in data.keys()}
+        # unq = meta.unique_together
+        obj, is_created = await self.update_or_create(data, **unq)
+
+        # save relations
+        for k, ids in m2ms.items():
+            m2m_rel: ManyToManyRelation = getattr(obj, k)
+            items = [await m2m_rel.remote_model[i] for i in ids]
+            await m2m_rel.add(*items)
+        for k, ids in bfks.items():
+            bfk_rel: ReverseRelation = getattr(obj, k)
+            items = [await bfk_rel.remote_model[i] for i in ids]
+            [await item.update_from_dict({bfk_rel.relation_field: obj.pk}).save() for item in items]
+        for k, oid in bo2os.items():
+            bo2o_rel: QuerySet = getattr(obj, k)
+            item = await bo2o_rel.model[oid]
+            await item.update_from_dict({obj._meta.db_table: obj}).save()
+
+        return obj
+
+    @classmethod
+    def field_input_map(cls) -> dict:
         def type2input(ft: type[Field]):
             dry = {
                 'base_field': hasattr(ft, 'base_field') and {**type2input(ft.base_field)},
@@ -50,7 +96,7 @@ class Model(BaseModel):
                 BackwardOneToOneRelation: {'input': FieldType.select.name},
                 ManyToManyRelation: {'input': FieldType.select.name, 'multiple': True},
                 ForeignKeyNullableRelation: {'input': FieldType.select.name, 'multiple': True},
-                BackwardFKRelation: {'input': FieldType.select.name, 'multiple': False},
+                BackwardFKRelation: {'input': FieldType.select.name, 'multiple': True},
                 OneToOneNullableRelation: {'input': FieldType.select.name},
                 PointField: {'input': FieldType.collection.name, **dry},
                 PolygonField: {'input': FieldType.list.name, **dry},
@@ -58,16 +104,16 @@ class Model(BaseModel):
             }
             return type2inputs[ft]
 
-        async def field2input(field: Field):
+        def field2input(key: str, field: Field):
             attrs: dict = {'required': not field.null}
             if isinstance(field, CharEnumFieldInstance):
-                attrs.update({'options': ((en.name, en.value) for en in field.enum_type)})
+                attrs.update({'options': {en.name: en.value for en in field.enum_type}})
             elif isinstance(field, IntEnumFieldInstance):
-                attrs.update({'options': ((en.value, en.name.replace('_', ' ').title()) for en in field.enum_type)})
+                attrs.update({'options': {en.value: en.name.replace('_', ' ') for en in field.enum_type}})
             elif isinstance(field, RelationalField):
-                attrs.update({'options': await field.get_options(), 'source_field': field.source_field})
+                attrs.update({'options': cls._options[key], 'source_field': field.source_field})
             elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)):
                 attrs.update({'auto': True})
             return {**type2input(type(field)), **attrs}
 
-        return {key: await field2input(field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}
+        return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}

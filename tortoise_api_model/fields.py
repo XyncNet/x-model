@@ -1,14 +1,6 @@
-from tortoise.fields.relational import RelationalField as RelField, BackwardFKRelation
 from asyncpg import Point, Polygon, Range
 from tortoise.fields import Field, IntField, FloatField
 from tortoise.fields.base import VALUE
-
-
-class RelationalField(RelField):
-    async def get_options(self):
-        first: [(str, str)] = [('', 'Empty')] if self.null or isinstance(self, BackwardFKRelation) else []
-        res = first + [(x.pk, x.repr()) for x in await self.related_model.all()]
-        return res
 
 
 class ListField(Field[VALUE]):
