@@ -50,7 +50,7 @@ class Model(BaseModel):
         #     unq = {key: data.pop(key) for key, ft in meta.fields_map.items() if ft.unique and key in data.keys()}
         # # unq = meta.unique_together
         # obj, is_created = await cls.update_or_create(data, **unq)
-        obj, cr = await cls.create(**data), True if oid else await cls.update_or_create(data, **{meta.pk_attr: oid})
+        obj = (await cls.update_or_create(data, **{meta.pk_attr: oid}))[0] if oid else await cls.create(**data)
 
         # save relations
         for k, ids in m2ms.items():
@@ -114,7 +114,7 @@ class Model(BaseModel):
             elif isinstance(field, IntEnumFieldInstance):
                 attrs.update({'options': {en.value: en.name.replace('_', ' ') for en in field.enum_type}})
             elif isinstance(field, RelationalField):
-                attrs.update({'options': cls._options[key], 'source_field': field.source_field})
+                attrs.update({'options': cls._options[key], 'source_field': field.source_field})  # 'table': attrs[key]['multiple'], 
             elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)):
                 attrs.update({'auto': True})
             return {**type2input(type(field)), **attrs}
