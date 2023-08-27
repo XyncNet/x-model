@@ -1,5 +1,5 @@
 from asyncpg import Point, Polygon, Range
-from tortoise.fields import Field, IntField, FloatField
+from tortoise.fields import Field, IntField, FloatField, DatetimeField
 from tortoise.fields.base import VALUE
 
 
@@ -51,3 +51,14 @@ class PolygonField(ListField[Polygon]):
     SQL_TYPE = "POLYGON"
     field_type = Polygon
     base_field = PointField
+
+
+class DatetimeSecField(DatetimeField):
+    class _db_postgres:
+        SQL_TYPE = "TIMESTAMPTZ(0)"
+
+# class InetField(CollectionField[Point]):
+#     SQL_TYPE = "INET"
+#     field_type = Point
+#     base_field = FloatField
+#     labels = ("lat", "lon")
