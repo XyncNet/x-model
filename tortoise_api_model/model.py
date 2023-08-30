@@ -9,6 +9,7 @@ from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
+from tortoise_api_model.fields import DatetimeSecField
 
 
 class Model(BaseModel):
@@ -16,6 +17,7 @@ class Model(BaseModel):
     _name: str = 'name'
     _icon: str  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _order: int = 1
+    _hidden: bool = False
     _options: {str: {int: str}}
     # _parent_model: str = None # todo: for dropdowns
 
@@ -86,6 +88,7 @@ class Model(BaseModel):
                 TextField: {'input': FieldType.textarea.name, 'rows': '2'},
                 BooleanField: {'input': FieldType.checkbox.name},
                 DatetimeField: {'input': FieldType.input.name, 'type': 'datetime'},
+                DatetimeSecField: {'input': FieldType.input.name, 'type': 'datetime'},
                 DateField: {'input': FieldType.input.name, 'type': 'date'},
                 TimeField: {'input': FieldType.input.name, 'type': 'time'},
                 JSONField: {'input': FieldType.input.name},
