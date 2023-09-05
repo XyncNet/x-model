@@ -21,7 +21,7 @@ class Model(BaseModel):
     _options: {str: {int: str}}
     # _parent_model: str = None # todo: for dropdowns
 
-    def repr(self):
+    async def repr(self):
         if self._name in self._meta.db_fields:
             return getattr(self, self._name)
         return self.__repr__()
@@ -32,7 +32,7 @@ class Model(BaseModel):
         for fk in cls._meta.fetch_fields:
             field: RelationalField = cls._meta.fields_map[fk]
             first: {str: str} = {'': 'Empty'} if field.null else {}
-            res[fk] = {**first, **{x.pk: x.repr() for x in await field.related_model.all()}}
+            res[fk] = {**first, **{x.pk: await x.repr() for x in await field.related_model.all()}}
         cls._options = res
 
     @classmethod
