@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
@@ -10,7 +12,6 @@ from tortoise.queryset import QuerySet
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.fields import DatetimeSecField
-
 
 class Model(BaseModel):
     # id: int = IntField(pk=True)
@@ -123,3 +124,8 @@ class Model(BaseModel):
             return {**type2input(type(field)), **attrs}
 
         return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}
+
+
+class TsModel(Model):
+    created_at: datetime = DatetimeSecField(auto_now_add=True)
+    updated_at: datetime = DatetimeSecField(auto_now=True)
