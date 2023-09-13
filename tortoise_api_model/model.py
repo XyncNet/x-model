@@ -1,9 +1,10 @@
 from datetime import datetime
+from enum import IntEnum
 
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
-    ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation
+    ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
 from tortoise.fields.data import IntEnumFieldInstance, CharEnumFieldInstance
 from tortoise.fields.relational import BackwardFKRelation, ForeignKeyFieldInstance, ManyToManyFieldInstance, \
     OneToOneFieldInstance, BackwardOneToOneRelation, RelationalField, ReverseRelation
@@ -129,3 +130,31 @@ class Model(BaseModel):
 class TsModel(Model):
     created_at: datetime = DatetimeSecField(auto_now_add=True)
     updated_at: datetime = DatetimeSecField(auto_now=True)
+
+
+class UserStatus(IntEnum):
+    Inactive = 0
+    Wait = 1  # waiting for approve
+    Test = 2  # trial
+    Active = 3
+
+class UserRole(IntEnum):
+    Client = 0
+    Manager = 1
+    Agent = 2
+    Admin = 3
+
+class User(TsModel):
+    id: int = SmallIntField(True)
+    status: UserStatus = IntEnumField(UserStatus, default=UserStatus.Wait)
+    username: str = CharField(63)
+    email: str = CharField(63)
+    password: str = CharField(63)
+    phone: int = BigIntField(null=True)
+    role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
+
+    _icon = 'user'
+    _name = 'username'
+
+    class Meta:
+        table_description = "Users"
