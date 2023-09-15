@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import IntEnum
 
 from tortoise import Model as BaseModel
+from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -15,7 +16,7 @@ from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.fields import DatetimeSecField
 
 class Model(BaseModel):
-    # id: int = IntField(pk=True)
+    id: int = IntField(pk=True)
     _name: str = 'name'
     _icon: str  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _order: int = 1
@@ -105,6 +106,7 @@ class Model(BaseModel):
                 ManyToManyRelation: {'input': FieldType.select.name, 'multiple': True},
                 ForeignKeyNullableRelation: {'input': FieldType.select.name, 'multiple': True},
                 BackwardFKRelation: {'input': FieldType.select.name, 'multiple': True},
+                ArrayField: {'input': FieldType.select.name, 'multiple': True},
                 OneToOneNullableRelation: {'input': FieldType.select.name},
                 PointField: {'input': FieldType.collection.name, **dry},
                 PolygonField: {'input': FieldType.list.name, **dry},
