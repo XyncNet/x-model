@@ -66,8 +66,8 @@ class SetField(ListField[IntEnum]):
     SQL_TYPE = "smallint[]"
     field_type = ArrayField
     base_field = SmallIntField
-    enum_type: IntEnum
+    enum_type: type[IntEnum]
 
-    def __init__(self, enum_type: IntEnum, **kwargs: Any):
+    def __init__(self, enum_type: type[IntEnum], **kwargs: Any):
         super().__init__(**kwargs)
         self.enum_type = enum_type
