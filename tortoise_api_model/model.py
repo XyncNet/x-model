@@ -13,7 +13,8 @@ from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
-from tortoise_api_model.fields import DatetimeSecField
+from tortoise_api_model.fields import DatetimeSecField, SetField
+
 
 class Model(BaseModel):
     id: int = IntField(pk=True)
@@ -106,7 +107,8 @@ class Model(BaseModel):
                 ManyToManyRelation: {'input': FieldType.select.name, 'multiple': True},
                 ForeignKeyNullableRelation: {'input': FieldType.select.name, 'multiple': True},
                 BackwardFKRelation: {'input': FieldType.select.name, 'multiple': True},
-                ArrayField: {'input': FieldType.select.name, 'multiple': True},
+                # ArrayField: {'input': FieldType.select.name, 'multiple': True},
+                SetField: {'input': FieldType.select.name, 'multiple': True},
                 OneToOneNullableRelation: {'input': FieldType.select.name},
                 PointField: {'input': FieldType.collection.name, **dry},
                 PolygonField: {'input': FieldType.list.name, **dry},
@@ -118,7 +120,7 @@ class Model(BaseModel):
             attrs: dict = {'required': not field.null}
             if isinstance(field, CharEnumFieldInstance):
                 attrs.update({'options': {en.name: en.value for en in field.enum_type}})
-            elif isinstance(field, IntEnumFieldInstance):
+            elif isinstance(field, IntEnumFieldInstance) or isinstance(field, SetField):
                 attrs.update({'options': {en.value: en.name.replace('_', ' ') for en in field.enum_type}})
             elif isinstance(field, RelationalField):
                 attrs.update({'options': cls._options[key], 'source_field': field.source_field})  # 'table': attrs[key]['multiple'],

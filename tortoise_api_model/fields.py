@@ -1,5 +1,9 @@
+from enum import IntEnum
+from typing import Any
+
 from asyncpg import Point, Polygon, Range
-from tortoise.fields import Field, IntField, FloatField, DatetimeField
+from tortoise.contrib.postgres.fields import ArrayField
+from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField
 from tortoise.fields.base import VALUE
 
 
@@ -57,8 +61,13 @@ class DatetimeSecField(DatetimeField):
     class _db_postgres:
         SQL_TYPE = "TIMESTAMPTZ(0)"
 
-# class InetField(CollectionField[Point]):
-#     SQL_TYPE = "INET"
-#     field_type = Point
-#     base_field = FloatField
-#     labels = ("lat", "lon")
+
+class SetField(ListField[IntEnum]):
+    SQL_TYPE = "smallint[]"
+    field_type = ArrayField
+    base_field = SmallIntField
+    enum_type: IntEnum
+
+    def __init__(self, enum_type: IntEnum, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.enum_type = enum_type
