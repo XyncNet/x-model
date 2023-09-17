@@ -1,8 +1,6 @@
 from datetime import datetime
-from enum import IntEnum
 
 from tortoise import Model as BaseModel
-from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -13,6 +11,7 @@ from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
+from tortoise_api_model.enums import UserStatus, UserRole
 from tortoise_api_model.fields import DatetimeSecField, SetField
 
 
@@ -124,7 +123,7 @@ class Model(BaseModel):
                 attrs.update({'options': {en.value: en.name.replace('_', ' ') for en in field.enum_type}})
             elif isinstance(field, RelationalField):
                 attrs.update({'options': cls._options[key], 'source_field': field.source_field})  # 'table': attrs[key]['multiple'],
-            elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)):
+            elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)): # noqa
                 attrs.update({'auto': True})
             return {**type2input(type(field)), **attrs}
 
@@ -135,18 +134,6 @@ class TsModel(Model):
     created_at: datetime = DatetimeSecField(auto_now_add=True)
     updated_at: datetime = DatetimeSecField(auto_now=True)
 
-
-class UserStatus(IntEnum):
-    Inactive = 0
-    Wait = 1  # waiting for approve
-    Test = 2  # trial
-    Active = 3
-
-class UserRole(IntEnum):
-    Client = 0
-    Manager = 1
-    Agent = 2
-    Admin = 3
 
 class User(TsModel):
     id: int = SmallIntField(True)

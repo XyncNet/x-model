@@ -16,3 +16,15 @@ class FieldType(IntEnum):
     textarea = 4
     collection = 5
     list = 6
+
+class UserStatus(IntEnum):
+    Inactive = 0
+    Wait = 1  # waiting for approve
+    Test = 2  # trial
+    Active = 3
+
+class UserRole(IntEnum):
+    Client = 0
+    Manager = 1
+    Agent = 2
+    Admin = 3

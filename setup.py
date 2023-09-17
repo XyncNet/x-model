@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.2.11'
+VERSION = '0.2.12'
 DESCRIPTION = 'Base model for tortoise-api'
 LONG_DESCRIPTION = 'A package that allows to build simple streams of video, audio and camera data.'
 
