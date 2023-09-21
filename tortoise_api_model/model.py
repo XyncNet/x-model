@@ -154,10 +154,14 @@ class User(TsModel):
 
     _icon = 'user'
     _name = 'username'
+    _cc = CryptContext(schemes=["bcrypt"])
+
+    def vrf_pwd(self, pwd: str) -> bool:
+        return self._cc.verify(pwd, self.password)
 
     class Meta:
         table_description = "Users"
 
 @pre_save(User)
-async def hash_password(_, user: User) -> None:
-    user.password = CryptContext(schemes=["bcrypt"]).hash(user.password)
+async def hash_pwd(_, user: User) -> None:
+    user.password = User._cc.hash(user.password)
