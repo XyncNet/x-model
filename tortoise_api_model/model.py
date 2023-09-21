@@ -146,9 +146,9 @@ class TsModel(Model):
 class User(TsModel):
     id: int = SmallIntField(True)
     status: UserStatus = IntEnumField(UserStatus, default=UserStatus.Wait)
-    username: str = CharField(63)
-    email: str = CharField(63)
-    password: str = CharField(63)
+    username: str = CharField(95, unique=True)
+    email: str = CharField(100, unique=True)
+    password: str = CharField(60)
     phone: int = BigIntField(null=True)
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 
