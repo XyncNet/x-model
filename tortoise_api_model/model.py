@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from passlib.context import CryptContext
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
@@ -9,6 +10,7 @@ from tortoise.fields.relational import BackwardFKRelation, ForeignKeyFieldInstan
     OneToOneFieldInstance, BackwardOneToOneRelation, RelationalField, ReverseRelation
 from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
+from tortoise.signals import pre_save
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.enums import UserStatus, UserRole
@@ -129,10 +131,16 @@ class Model(BaseModel):
 
         return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}
 
+    class Meta:
+        abstract = True
+
 
 class TsModel(Model):
     created_at: datetime = DatetimeSecField(auto_now_add=True)
     updated_at: datetime = DatetimeSecField(auto_now=True)
+
+    class Meta:
+        abstract = True
 
 
 class User(TsModel):
@@ -149,3 +157,7 @@ class User(TsModel):
 
     class Meta:
         table_description = "Users"
+
+@pre_save(User)
+async def hash_password(_, user: User) -> None:
+    user.password = CryptContext(schemes=["bcrypt"]).hash(user.password)
