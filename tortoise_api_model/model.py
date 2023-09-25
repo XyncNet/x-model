@@ -187,9 +187,9 @@ class User(TsModel):
 
     class Meta:
         table_description = "Users"
-
-    class PydanticMeta:
-        model_config = ConfigDict(extra='allow')
+    #
+    # class PydanticMeta:
+    #     model_config = ConfigDict(extra='allow')
 
 
 @pre_save(User)
