@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from passlib.context import CryptContext
+from pydantic import ConfigDict
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
@@ -151,7 +152,7 @@ class Model(BaseModel):
                 return None
             return getattr(self, key)
 
-        return {key: await check(field, key) for key, field in obj._meta.fields_map.items() if not key.endswith('_id')}
+        return {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
 
     async def _rel_pack(self) -> dict:
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
@@ -172,9 +173,9 @@ class User(TsModel):
     id: int = SmallIntField(True)
     status: UserStatus = IntEnumField(UserStatus, default=UserStatus.Wait)
     username: str = CharField(95, unique=True)
-    email: str = CharField(100, unique=True)
+    email: str|None = CharField(100, unique=True, null=True)
     password: str = CharField(60)
-    phone: int = BigIntField(null=True)
+    phone: int|None = BigIntField(null=True)
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 
     _icon = 'user'
@@ -187,6 +188,10 @@ class User(TsModel):
     class Meta:
         table_description = "Users"
 
+    class PydanticMeta:
+        model_config = ConfigDict(extra='allow')
+
+
 @pre_save(User)
-async def hash_pwd(_, user: User) -> None:
+async def hash_pwd(_, user: User, __, ___) -> None:
     user.password = User._cc.hash(user.password)
