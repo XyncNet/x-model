@@ -131,6 +131,31 @@ class Model(BaseModel):
 
         return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}
 
+    async def with_rels(self) -> dict:
+        async def check(field: Field, key: str):
+            prop = getattr(self, key)
+
+            # if isinstance(prop, date):
+            #     return prop.__str__().split('+')[0].split('.')[0] # '+' separates tz part, '.' separates millisecond part
+            # if isinstance(prop, Polygon):
+            #     return prop.points
+            # if isinstance(prop, Range):
+            #     return prop.lower, prop.upper
+            if isinstance(field, RelationalField):
+                if isinstance(prop, Model):
+                    return await prop._rel_pack()
+                elif isinstance(prop, ReverseRelation) and isinstance(prop.related_objects, list):
+                    return [await d._rel_pack() for d in prop.related_objects]
+                elif prop is None:
+                    return ''
+                return None
+            return getattr(self, key)
+
+        return {key: await check(field, key) for key, field in obj._meta.fields_map.items() if not key.endswith('_id')}
+
+    async def _rel_pack(self) -> dict:
+        return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
+
     class Meta:
         abstract = True
 
