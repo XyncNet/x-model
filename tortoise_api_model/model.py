@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from passlib.context import CryptContext
-from pydantic import ConfigDict
+# from pydantic import ConfigDict
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
@@ -157,6 +157,12 @@ class Model(BaseModel):
     async def _rel_pack(self) -> dict:
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
 
+    async def index(self, limit: int = 50, page: int = 1):
+        objects: [Model] = await self.all().prefetch_related(*self._meta.fetch_fields).limit(
+            limit).offset(limit * (page - 1))
+        data = [await obj.with_rels() for obj in objects]
+        return {'data': data}  # show all
+
     class Meta:
         abstract = True
 
@@ -193,5 +199,8 @@ class User(TsModel):
 
 
 @pre_save(User)
-async def hash_pwd(_, user: User, __, ___) -> None:
-    user.password = User._cc.hash(user.password)
+async def hash_pwd(_, user: User, __, updated: dict) -> None:
+    if updated and 'password' not in updated:
+        return
+    secret = user.password if not updated else updated['password']
+    user.password = User._cc.hash(secret)
