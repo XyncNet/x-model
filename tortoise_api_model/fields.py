@@ -20,6 +20,7 @@ class ListField(Field[VALUE]):
         self.validate(value)
         return value
 
+
 class CollectionField(ListField[VALUE]):
     labels: tuple
     step: str = None
@@ -43,7 +44,14 @@ class RangeField(CollectionField[Range]):
         if value is not None and not isinstance(value, self.field_type):
             value = self.field_type(*[float(v) for v in value])
         self.validate(value)
+        return value.lower, value.upper
+
+    def to_db_value(self, value: Any, instance: "Union[Type[Model], Model]") -> Any:
+        if value is not None and not isinstance(value, self.field_type):
+            value = self.field_type(*value)  # pylint: disable=E1102
+        self.validate(value)
         return value
+
 
 class PointField(CollectionField[Point]):
     SQL_TYPE = "POINT"
@@ -71,3 +79,12 @@ class SetField(ListField[IntEnum]):
     def __init__(self, enum_type: type[IntEnum], **kwargs: Any):
         super().__init__(**kwargs)
         self.enum_type = enum_type
+        self.field_type = enum_type
+        self.base_field = enum_type
+
+    def to_python_value(self, value):
+        for val in value:
+            if val is not None and not isinstance(val, self.enum_type):
+                val = self.enum_type(val)
+            self.validate(val)
+        return value

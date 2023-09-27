@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from passlib.context import CryptContext
-# from pydantic import ConfigDict
+from pydantic import ConfigDict
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
@@ -168,8 +168,8 @@ class Model(BaseModel):
 
 
 class TsModel(Model):
-    created_at: datetime = DatetimeSecField(auto_now_add=True)
-    updated_at: datetime = DatetimeSecField(auto_now=True)
+    created_at: datetime|None = DatetimeSecField(auto_now_add=True)
+    updated_at: datetime|None = DatetimeSecField(auto_now=True)
 
     class Meta:
         abstract = True
