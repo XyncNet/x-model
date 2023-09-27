@@ -44,7 +44,7 @@ class RangeField(CollectionField[Range]):
         if value is not None and not isinstance(value, self.field_type):
             value = self.field_type(*[float(v) for v in value])
         self.validate(value)
-        return value.lower, value.upper
+        return (value.lower, value.upper) if value else value
 
     def to_db_value(self, value: Any, instance: "Union[Type[Model], Model]") -> Any:
         if value is not None and not isinstance(value, self.field_type):
