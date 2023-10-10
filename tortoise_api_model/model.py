@@ -74,6 +74,7 @@ class Model(BaseModel):
             item = await bo2o_rel.model[oid]
             await item.update_from_dict({obj._meta.db_table: obj}).save()
 
+        await obj.fetch_related(*cls._meta.fetch_fields)
         return obj
 
     @classmethod
