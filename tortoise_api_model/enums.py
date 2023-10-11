@@ -24,12 +24,12 @@ class UserStatus(IntEnum):
     Active = 3
 
 class UserRole(IntEnum):
-    Client = 0
-    Manager = 1
+    Client = 1
     Agent = 2
-    Admin = 3
+    Manager = 3
+    Admin = 4
 
 class Scope(IntEnum):
-    Read = 0
-    Write = 1
-    My = 2
+    Read = 1
+    Write = 2
+    All = 3 # not only my
