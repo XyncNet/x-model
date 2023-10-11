@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from passlib.context import CryptContext
-from pydantic import ConfigDict
+# from pydantic import ConfigDict
 from tortoise import Model as BaseModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \

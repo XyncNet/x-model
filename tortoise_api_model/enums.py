@@ -28,3 +28,8 @@ class UserRole(IntEnum):
     Manager = 1
     Agent = 2
     Admin = 3
+
+class Scope(IntEnum):
+    Read = 0
+    Write = 1
+    My = 2
