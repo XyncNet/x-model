@@ -2,3 +2,5 @@
 /.idea
 /*.egg-info
 /.env
+/venv
+__pycache__
