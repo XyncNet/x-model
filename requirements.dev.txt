@@ -1,0 +1,4 @@
+passlib[bcrypt]
+pytest
+python-dotenv
+tortoise-orm[asyncpg]
