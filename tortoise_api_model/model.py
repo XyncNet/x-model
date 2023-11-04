@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from asyncpg import Point, Polygon, Range
 from passlib.context import CryptContext
 # from pydantic import ConfigDict
 from tortoise import Model as BaseModel
@@ -137,12 +138,14 @@ class Model(BaseModel):
         async def check(field: Field, key: str):
             prop = getattr(self, key)
 
-            # if isinstance(prop, date):
-            #     return prop.__str__().split('+')[0].split('.')[0] # '+' separates tz part, '.' separates millisecond part
-            # if isinstance(prop, Polygon):
-            #     return prop.points
-            # if isinstance(prop, Range):
-            #     return prop.lower, prop.upper
+            if isinstance(prop, datetime):
+                return prop.__str__().split('+')[0].split('.')[0] # '+' separates tz part, '.' separates millisecond part
+            if isinstance(prop, Point):
+                return prop.x, prop.y
+            if isinstance(prop, Polygon):
+                return prop.points
+            if isinstance(prop, Range):
+                return prop.lower, prop.upper
             if isinstance(field, RelationalField):
                 if isinstance(prop, Model):
                     return await prop._rel_pack()
@@ -158,9 +161,9 @@ class Model(BaseModel):
     async def _rel_pack(self) -> dict:
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
 
-    async def index(self, limit: int = 50, page: int = 1):
-        objects: [Model] = await self.all().prefetch_related(*self._meta.fetch_fields).limit(
-            limit).offset(limit * (page - 1))
+    @classmethod
+    async def index(cls, limit: int = 50, page: int = 1):
+        objects: [Model] = await cls.all().prefetch_related(*cls._meta.fetch_fields).limit(limit).offset(limit * (page - 1))
         data = [await obj.with_rels() for obj in objects]
         return {'data': data}  # show all
 
