@@ -4,6 +4,7 @@ from asyncpg import Point, Polygon, Range
 from passlib.context import CryptContext
 # from pydantic import ConfigDict
 from tortoise import Model as BaseModel
+from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -27,6 +28,11 @@ class Model(BaseModel):
     _hidden: bool = False
     _options: {str: {int: str}}
     # _parent_model: str = None # todo: for dropdowns
+    # PydModel: PydanticModel.__class__
+
+    @classmethod
+    def pyd(cls) -> PydanticModel.__class__:
+        return pydantic_model_creator(cls)
 
     async def repr(self):
         if self._name in self._meta.db_fields:
@@ -156,16 +162,21 @@ class Model(BaseModel):
                 return None
             return getattr(self, key)
 
-        return {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
+        d = {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
+        md = await self.pyd_model.from_tortoise_orm(self)
+        return md
 
     async def _rel_pack(self) -> dict:
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
 
     @classmethod
-    async def index(cls, limit: int = 50, page: int = 1):
-        objects: [Model] = await cls.all().prefetch_related(*cls._meta.fetch_fields).limit(limit).offset(limit * (page - 1))
-        data = [await obj.with_rels() for obj in objects]
-        return {'data': data}  # show all
+    def pageQuery(cls, limit: int = 50, offset: int = 0) -> list[PydanticModel]:
+        return cls.all().prefetch_related(*cls._meta.fetch_fields).limit(limit).offset(offset)
+
+    @classmethod
+    async def pagePyd(cls, limit: int = 50, offset: int = 0) -> list[PydanticModel]:
+        d = await cls.pyd().from_queryset(cls.pageQuery(limit, offset))
+        return d  # show all
 
     class Meta:
         abstract = True

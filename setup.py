@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.4.1'
+VERSION = '0.4.2'
 DESCRIPTION = 'Base model for tortoise-api'
 LONG_DESCRIPTION = 'A package that allows to build simple streams of video, audio and camera data.'
 
@@ -14,7 +14,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'tortoise-orm[asyncpg]',
-        'passlib[bcrypt]'
+        'passlib[bcrypt]',
+        'pydantic'
     ],
     keywords=['tortoise', 'model', 'crud', 'generator', 'api', 'admin'],
     classifiers=[
