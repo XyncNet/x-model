@@ -170,13 +170,14 @@ class Model(BaseModel):
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
 
     @classmethod
-    def pageQuery(cls, limit: int = 50, offset: int = 0) -> list[PydanticModel]:
+    def pageQuery(cls, limit: int = 1000, offset: int = 0) -> list[PydanticModel]:
         return cls.all().prefetch_related(*cls._meta.fetch_fields).limit(limit).offset(offset)
 
     @classmethod
-    async def pagePyd(cls, limit: int = 50, offset: int = 0) -> list[PydanticModel]:
-        d = await cls.pyd().from_queryset(cls.pageQuery(limit, offset))
-        return d  # show all
+    async def pagePyd(cls, limit: int = 1000, page: int = 1) -> (list[PydanticModel], int):
+        objects = await cls.pyd().from_queryset(cls.pageQuery(limit, limit * (page - 1)))
+        total = len(objects) if len(objects) < limit and page==1 else await cls.all().count()
+        return objects, total  # show all
 
     class Meta:
         abstract = True
