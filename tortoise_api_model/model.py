@@ -47,7 +47,7 @@ class Model(BaseModel):
 
     @classmethod
     def pyd(cls, inp: bool = False) -> PydanticModel.__class__:
-        params = {'name': cls.__name__+'-In', 'meta_override': pm_out, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out}
+        params = {'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out}
         return pydantic_model_creator(cls, **params)
 
     @classmethod
@@ -59,7 +59,7 @@ class Model(BaseModel):
             __base__=PydList,
         )
 
-    async def repr(self):
+    def repr(self):
         if self._name in self._meta.db_fields:
             return getattr(self, self._name)
         return self.__repr__()
@@ -70,7 +70,8 @@ class Model(BaseModel):
         for fk in cls._meta.fetch_fields:
             field: RelationalField = cls._meta.fields_map[fk]
             first: {str: str} = {'': 'Empty'} if field.null else {}
-            res[fk] = {**first, **{x.pk: await x.repr() for x in await field.related_model.all()}}
+            rm: Model = field.related_model
+            res[fk] = {**first, **{x.pk: x.repr() for x in await rm.all().prefetch_related(*rm._fetches)}}
         cls._options = res
 
     @classmethod
@@ -179,27 +180,24 @@ class Model(BaseModel):
                 return prop.lower, prop.upper
             if isinstance(field, RelationalField):
                 if isinstance(prop, Model):
-                    return await prop._rel_pack()
+                    return prop._rel_pack()
                 elif isinstance(prop, ReverseRelation) and isinstance(prop.related_objects, list):
-                    return [await d._rel_pack() for d in prop.related_objects]
+                    return [d._rel_pack() for d in prop.related_objects]
                 elif prop is None:
                     return ''
                 return None
             return getattr(self, key)
 
-        d = {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
+        # d = {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
         md = await self.pyd_model.from_tortoise_orm(self)
         return md
 
-    async def _rel_pack(self) -> dict:
-        return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
+    def _rel_pack(self) -> dict:
+        return {'id': self.id, 'type': self.__class__.__name__, 'repr': self.repr()}
 
     @classmethod
     def pageQuery(cls, limit: int = 1000, offset: int = 0, reps: bool = False) -> QuerySet:
-        fetches = cls._meta.fetch_fields
-        if reps:
-            fetches |= cls._fetches
-        return cls.all().prefetch_related(*fetches).limit(limit).offset(offset)
+        return cls.all().prefetch_related(*(cls._meta.fetch_fields | (cls._fetches if reps else {}))).limit(limit).offset(offset)
 
     @classmethod
     async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
@@ -242,7 +240,7 @@ class User(TsModel):
     #     model_config = ConfigDict(extra='allow')
 
 
-@pre_save(User)
+# @pre_save(User) # todo not working for overriden User Models
 async def hash_pwd(_, user: User, __, updated: dict) -> None:
     if updated and 'password' not in updated:
         return
