@@ -3,8 +3,10 @@ from datetime import datetime
 from asyncpg import Point, Polygon, Range
 from passlib.context import CryptContext
 # from pydantic import ConfigDict
+from pydantic import create_model, BaseModel as BasePyd
 from tortoise import Model as BaseModel
-from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
+from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel, pydantic_queryset_creator, PydanticListModel
+from tortoise.contrib.pydantic.creator import PydanticMeta
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -19,20 +21,43 @@ from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.enums import UserStatus, UserRole
 from tortoise_api_model.fields import DatetimeSecField, SetField
 
+pm_in = PydanticMeta
+pm_in.exclude_raw_fields = False
+pm_in.max_recursion = 0
+# pm_in.backward_relations = False
+pm_out = PydanticMeta
+pm_out.max_recursion = 1
+
+
+class PydList(BasePyd):
+    data: list[PydanticModel]
+    total: int
+
 
 class Model(BaseModel):
     id: int = IntField(pk=True)
     _name: str = 'name'
-    _icon: str  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
+    _icon: str = '' # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _order: int = 1
     _hidden: bool = False
     _options: {str: {int: str}}
+    _fetches: {str} = set()
     # _parent_model: str = None # todo: for dropdowns
     # PydModel: PydanticModel.__class__
 
     @classmethod
-    def pyd(cls) -> PydanticModel.__class__:
-        return pydantic_model_creator(cls)
+    def pyd(cls, inp: bool = False) -> PydanticModel.__class__:
+        params = {'name': cls.__name__+'-In', 'meta_override': pm_out, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out}
+        return pydantic_model_creator(cls, **params)
+
+    @classmethod
+    def pyds(cls) -> PydList.__class__:
+        return create_model(
+            cls.__name__ + 'List',
+            data=(list[cls.pyd()], ...),
+            total=(int, ...),
+            __base__=PydList,
+        )
 
     async def repr(self):
         if self._name in self._meta.db_fields:
@@ -170,14 +195,17 @@ class Model(BaseModel):
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': await self.repr()}
 
     @classmethod
-    def pageQuery(cls, limit: int = 1000, offset: int = 0) -> list[PydanticModel]:
-        return cls.all().prefetch_related(*cls._meta.fetch_fields).limit(limit).offset(offset)
+    def pageQuery(cls, limit: int = 1000, offset: int = 0, reps: bool = False) -> QuerySet:
+        fetches = cls._meta.fetch_fields
+        if reps:
+            fetches |= cls._fetches
+        return cls.all().prefetch_related(*fetches).limit(limit).offset(offset)
 
     @classmethod
-    async def pagePyd(cls, limit: int = 1000, page: int = 1) -> (list[PydanticModel], int):
-        objects = await cls.pyd().from_queryset(cls.pageQuery(limit, limit * (page - 1)))
-        total = len(objects) if len(objects) < limit and page==1 else await cls.all().count()
-        return objects, total  # show all
+    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
+        data = await cls.pyd().from_queryset(cls.pageQuery(limit, offset))
+        total = len(data)+offset if limit-len(data) else await cls.all().count()
+        return cls.pyds()(data=data, total=total)
 
     class Meta:
         abstract = True
@@ -196,7 +224,7 @@ class User(TsModel):
     status: UserStatus = IntEnumField(UserStatus, default=UserStatus.Wait)
     username: str = CharField(95, unique=True)
     email: str|None = CharField(100, unique=True, null=True)
-    password: str = CharField(60)
+    password: str|None = CharField(60)
     phone: int|None = BigIntField(null=True)
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 

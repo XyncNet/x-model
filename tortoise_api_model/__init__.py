@@ -5,7 +5,7 @@ from tortoise.exceptions import DBConnectionError
 
 from .enums import FieldType
 from .fields import PointField, RangeField, PolygonField, CollectionField, ListField, DatetimeSecField
-from .model import Model, TsModel, User
+from .model import Model, TsModel, User, PydList
 
 
 async def init_db(dsn: str, models: ModuleType) -> AsyncpgDBClient|str:
