@@ -196,8 +196,11 @@ class Model(BaseModel):
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': self.repr()}
 
     @classmethod
-    def pageQuery(cls, limit: int = 1000, offset: int = 0, reps: bool = False) -> QuerySet:
-        return cls.all().prefetch_related(*(cls._meta.fetch_fields | (cls._fetches if reps else set()))).limit(limit).offset(offset)
+    def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
+        return cls.all()\
+            .prefetch_related(*(cls._meta.fetch_fields | (cls._fetches if reps else set())))\
+            .order_by(*order)\
+            .limit(limit).offset(offset)
 
     @classmethod
     async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
