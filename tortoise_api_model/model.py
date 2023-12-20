@@ -46,6 +46,11 @@ class Model(BaseModel):
     # PydModel: PydanticModel.__class__
 
     @classmethod
+    def cols(cls) -> list[dict]:
+        meta = cls._meta
+        return [{'data': c, 'orderable': c not in meta.fetch_fields or c in meta.fk_fields} for c in meta.fields_map if not c.endswith('_id')]
+
+    @classmethod
     def pyd(cls, inp: bool = False) -> PydanticModel.__class__:
         params = {'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out}
         return pydantic_model_creator(cls, **params)
@@ -166,7 +171,7 @@ class Model(BaseModel):
 
         return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}
 
-    async def with_rels(self) -> dict:
+    async def with_rels(self) -> PydanticModel:
         async def check(field: Field, key: str):
             prop = getattr(self, key)
 
@@ -189,14 +194,14 @@ class Model(BaseModel):
             return getattr(self, key)
 
         # d = {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
-        md = await self.pyd_model.from_tortoise_orm(self)
+        md = await self.pyd().from_tortoise_orm(self)
         return md
 
     def _rel_pack(self) -> dict:
         return {'id': self.id, 'type': self.__class__.__name__, 'repr': self.repr()}
 
     @classmethod
-    def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
+    def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = [], reps: bool = False) -> QuerySet:
         return cls.all()\
             .prefetch_related(*(cls._meta.fetch_fields | (cls._fetches if reps else set())))\
             .order_by(*order)\
@@ -225,7 +230,7 @@ class User(TsModel):
     status: UserStatus = IntEnumField(UserStatus, default=UserStatus.Wait)
     username: str = CharField(95, unique=True)
     email: str|None = CharField(100, unique=True, null=True)
-    password: str|None = CharField(60)
+    password: str|None = CharField(60, null=True)
     phone: int|None = BigIntField(null=True)
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 
