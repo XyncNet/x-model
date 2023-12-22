@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 # from pydantic import ConfigDict
 from pydantic import create_model, BaseModel as BasePyd
 from tortoise import Model as BaseModel
-from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel, pydantic_queryset_creator, PydanticListModel
+from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.contrib.pydantic.creator import PydanticMeta
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
@@ -248,7 +248,7 @@ class User(TsModel):
     #     model_config = ConfigDict(extra='allow')
 
 
-# @pre_save(User) # todo not working for overriden User Models
+@pre_save(User) # todo not working for overriden User Models
 async def hash_pwd(_, user: User, __, updated: dict) -> None:
     if updated and 'password' not in updated:
         return
