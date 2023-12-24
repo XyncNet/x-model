@@ -254,3 +254,22 @@ async def hash_pwd(_, user: User, __, updated: dict) -> None:
         return
     secret = user.password if not updated else updated['password']
     user.password = User._cc.hash(secret)
+
+
+class UserPwd(BasePyd):
+    password: str
+
+class UserReg(UserPwd):
+    username: str
+    email: str|None = None
+    phone: int|None = None
+
+class UserUpdate(BasePyd):
+    username: str
+    status: UserStatus
+    email: str|None
+    phone: int|None
+    role: UserRole
+
+class UserSchema(UserUpdate):
+    id: int
