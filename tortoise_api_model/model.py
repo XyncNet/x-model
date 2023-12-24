@@ -248,14 +248,6 @@ class User(TsModel):
     #     model_config = ConfigDict(extra='allow')
 
 
-@pre_save(User) # todo not working for overriden User Models
-async def hash_pwd(_, user: User, __, updated: dict) -> None:
-    if (updated and 'password' not in updated) or not user.password:
-        return
-    secret = user.password if not updated else updated['password']
-    user.password = User._cc.hash(secret)
-
-
 class UserPwd(BasePyd):
     password: str
 
