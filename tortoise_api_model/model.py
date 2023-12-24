@@ -70,6 +70,13 @@ class Model(BaseModel):
         return self.__repr__()
 
     @classmethod
+    async def getOrCreateByName(cls, name: str) -> BaseModel:
+        if not (obj := await cls.get_or_none(**{cls._name: name})):
+            next_id = (await cls.all().order_by('-id').first()).id + 1
+            obj = await cls.create(id=next_id, **{cls._name: name})
+        return obj
+
+    @classmethod
     async def load_rel_options(cls):
         res = {}
         for fk in cls._meta.fetch_fields:
