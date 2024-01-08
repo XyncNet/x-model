@@ -3,9 +3,10 @@ from tortoise import Tortoise, connections, ConfigurationError
 from tortoise.backends.asyncpg import AsyncpgDBClient
 from tortoise.exceptions import DBConnectionError
 
-from .enums import FieldType
-from .fields import PointField, RangeField, PolygonField, CollectionField, ListField, DatetimeSecField
+from .enum import FieldType
+from .field import PointField, RangeField, PolygonField, CollectionField, ListField, DatetimeSecField
 from .model import Model, TsModel, User, PydList
+from .func import Array
 
 
 async def init_db(dsn: str, models: ModuleType) -> AsyncpgDBClient|str:

@@ -18,8 +18,8 @@ from tortoise.queryset import QuerySet
 from tortoise.signals import pre_save
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
-from tortoise_api_model.enums import UserStatus, UserRole
-from tortoise_api_model.fields import DatetimeSecField, SetField
+from tortoise_api_model.enum import UserStatus, UserRole
+from tortoise_api_model.field import DatetimeSecField, SetField
 
 pm_in = PydanticMeta
 pm_in.exclude_raw_fields = False
@@ -52,7 +52,7 @@ class Model(BaseModel):
 
     @classmethod
     def pyd(cls, inp: bool = False) -> PydanticModel.__class__:
-        params = {'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out}
+        params = {'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__}
         return pydantic_model_creator(cls, **params)
 
     @classmethod
@@ -216,7 +216,8 @@ class Model(BaseModel):
 
     @classmethod
     async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
-        data = await cls.pyd().from_queryset(cls.pageQuery(limit, offset))
+        pyd = cls.pyd()
+        data = await pyd.from_queryset(cls.pageQuery(limit, offset))
         total = len(data)+offset if limit-len(data) else await cls.all().count()
         return cls.pyds()(data=data, total=total)
 
