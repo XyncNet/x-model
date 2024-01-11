@@ -1,10 +1,10 @@
 from datetime import datetime
-
-from asyncpg import Point, Polygon, Range
+from enum import IntEnum
+from typing import Set
 from passlib.context import CryptContext
-# from pydantic import ConfigDict
 from pydantic import create_model, BaseModel as BasePyd
 from tortoise import Model as BaseModel
+from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.contrib.pydantic.creator import PydanticMeta
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
@@ -15,7 +15,6 @@ from tortoise.fields.relational import BackwardFKRelation, ForeignKeyFieldInstan
     OneToOneFieldInstance, BackwardOneToOneRelation, RelationalField, ReverseRelation
 from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
-from tortoise.signals import pre_save
 
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.enum import UserStatus, UserRole
@@ -23,27 +22,32 @@ from tortoise_api_model.field import DatetimeSecField, SetField
 
 pm_in = PydanticMeta
 pm_in.exclude_raw_fields = False
-pm_in.max_recursion = 0
-# pm_in.backward_relations = False
+pm_in.max_recursion = 0 # no need to disable backward relations, because recursion=0
 pm_out = PydanticMeta
 pm_out.max_recursion = 1
+pm_out.backward_relations = False
 
 
 class PydList(BasePyd):
     data: list[PydanticModel]
     total: int
 
+class FetchType(IntEnum):
+    fk = 0
+    o2o = 1
+    m2m = 2
+    backward_o2o = 3
+    backward_fk = 4
+
+Fetchness = Set[FetchType]
 
 class Model(BaseModel):
     id: int = IntField(pk=True)
     _name: str = 'name'
     _icon: str = '' # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
-    _order: int = 1
-    _hidden: bool = False
-    _options: {str: {int: str}}
-    _fetches: {str} = set()
-    # _parent_model: str = None # todo: for dropdowns
-    # PydModel: PydanticModel.__class__
+    _extra_fetches: {str: str} = {}
+    _pyd: type[PydanticModel] = None
+    _pyds: type[PydList] = None
 
     @classmethod
     def cols(cls) -> list[dict]:
@@ -51,23 +55,38 @@ class Model(BaseModel):
         return [{'data': c, 'orderable': c not in meta.fetch_fields or c in meta.fk_fields} for c in meta.fields_map if not c.endswith('_id')]
 
     @classmethod
-    def pyd(cls, inp: bool = False) -> PydanticModel.__class__:
-        params = {'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__}
-        return pydantic_model_creator(cls, **params)
+    def pyd(cls, inp: bool = False) -> type[PydanticModel]:
+        return cls._pyd or pydantic_model_creator(cls, **{'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out})
 
     @classmethod
-    def pyds(cls) -> PydList.__class__:
+    def pyds(cls) -> type[PydList]:
         return create_model(
             cls.__name__ + 'List',
-            data=(list[cls.pyd()], ...),
-            total=(int, ...),
+            data=(list[cls.pyd()], []),
+            total=(int, 0),
             __base__=PydList,
         )
 
-    def repr(self):
+    @classmethod
+    def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
+        return cls.all()\
+            .order_by(*(order or []))\
+            .limit(limit).offset(offset)
+            # todo: search and filters
+
+    @classmethod
+    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
+        query = cls.all().limit(limit).offset(offset)
+        pyd: PydanticModel.__class__ = cls.pyd()
+        data = await pyd.from_queryset(query)
+        total = len(data)+offset if limit-len(data) else await cls.all().count()
+        return cls.pyds()(data=data, total=total)
+
+    def repr(self, caller: type[BaseModel] = None):
         if self._name in self._meta.db_fields:
             return getattr(self, self._name)
-        return self.__repr__()
+        rel_repr = [getattr(rel, key) for field, key in self._extra_fetches.items() if (rel:=getattr(self, field)) and not (caller and caller._meta.db_table==field)]
+        return '-'.join(rel_repr) or self.__repr__()
 
     @classmethod
     async def getOrCreateByName(cls, name: str) -> BaseModel:
@@ -76,15 +95,6 @@ class Model(BaseModel):
             obj = await cls.create(id=next_id, **{cls._name: name})
         return obj
 
-    @classmethod
-    async def load_rel_options(cls):
-        res = {}
-        for fk in cls._meta.fetch_fields:
-            field: RelationalField = cls._meta.fields_map[fk]
-            first: {str: str} = {'': 'Empty'} if field.null else {}
-            rm: Model = field.related_model
-            res[fk] = {**first, **{x.pk: x.repr() for x in await rm.all().prefetch_related(*rm._fetches)}}
-        cls._options = res
 
     @classmethod
     async def upsert(cls, data: dict, oid = None):
@@ -96,7 +106,6 @@ class Model(BaseModel):
         bo2os = {k: data.pop(k) for k in meta.backward_o2o_fields if k in data}
 
         # save general model
-
         # if pk := meta.pk_attr in data.keys():
         #     unq = {pk: data.pop(pk)}
         # else:
@@ -155,7 +164,7 @@ class Model(BaseModel):
                 ManyToManyRelation: {'input': FieldType.select.name, 'multiple': True},
                 ForeignKeyNullableRelation: {'input': FieldType.select.name, 'multiple': True},
                 BackwardFKRelation: {'input': FieldType.select.name, 'multiple': True},
-                # ArrayField: {'input': FieldType.select.name, 'multiple': True},
+                ArrayField: {'input': FieldType.select.name, 'multiple': True},
                 SetField: {'input': FieldType.select.name, 'multiple': True},
                 OneToOneNullableRelation: {'input': FieldType.select.name},
                 PointField: {'input': FieldType.collection.name, **dry},
@@ -171,55 +180,12 @@ class Model(BaseModel):
             elif isinstance(field, IntEnumFieldInstance) or isinstance(field, SetField):
                 attrs.update({'options': {en.value: en.name.replace('_', ' ') for en in field.enum_type}})
             elif isinstance(field, RelationalField):
-                attrs.update({'options': cls._options[key], 'source_field': field.source_field})  # 'table': attrs[key]['multiple'],
+                attrs.update({'source_field': field.source_field})  # 'table': attrs[key]['multiple'],
             elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)): # noqa
                 attrs.update({'auto': True})
             return {**type2input(type(field)), **attrs}
 
         return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith('_id')}
-
-    async def with_rels(self) -> PydanticModel:
-        async def check(field: Field, key: str):
-            prop = getattr(self, key)
-
-            if isinstance(prop, datetime):
-                return prop.__str__().split('+')[0].split('.')[0] # '+' separates tz part, '.' separates millisecond part
-            if isinstance(prop, Point):
-                return prop.x, prop.y
-            if isinstance(prop, Polygon):
-                return prop.points
-            if isinstance(prop, Range):
-                return prop.lower, prop.upper
-            if isinstance(field, RelationalField):
-                if isinstance(prop, Model):
-                    return prop._rel_pack()
-                elif isinstance(prop, ReverseRelation) and isinstance(prop.related_objects, list):
-                    return [d._rel_pack() for d in prop.related_objects]
-                elif prop is None:
-                    return ''
-                return None
-            return getattr(self, key)
-
-        # d = {key: await check(field, key) for key, field in self._meta.fields_map.items() if not key.endswith('_id')}
-        md = await self.pyd().from_tortoise_orm(self)
-        return md
-
-    def _rel_pack(self) -> dict:
-        return {'id': self.id, 'type': self.__class__.__name__, 'repr': self.repr()}
-
-    @classmethod
-    def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = [], reps: bool = False) -> QuerySet:
-        return cls.all()\
-            .prefetch_related(*(cls._meta.fetch_fields | (cls._fetches if reps else set())))\
-            .order_by(*order)\
-            .limit(limit).offset(offset)
-
-    @classmethod
-    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
-        pyd = cls.pyd()
-        data = await pyd.from_queryset(cls.pageQuery(limit, offset))
-        total = len(data)+offset if limit-len(data) else await cls.all().count()
-        return cls.pyds()(data=data, total=total)
 
     class Meta:
         abstract = True
@@ -244,17 +210,12 @@ class User(TsModel):
 
     _icon = 'user'
     _name = 'username'
-    _cc = CryptContext(schemes=["bcrypt"])
 
     def vrf_pwd(self, pwd: str) -> bool:
-        return self._cc.verify(pwd, self.password)
+        return CryptContext(schemes=["bcrypt"]).verify(pwd, self.password)
 
     class Meta:
         table_description = "Users"
-    #
-    # class PydanticMeta:
-    #     model_config = ConfigDict(extra='allow')
-
 
 class UserPwd(BasePyd):
     password: str

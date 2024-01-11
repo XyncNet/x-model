@@ -2,6 +2,7 @@ from enum import IntEnum
 from typing import Any
 
 from asyncpg import Point, Polygon, Range, Box
+from tortoise import Model
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField
 from tortoise.fields.base import VALUE
@@ -10,9 +11,6 @@ from tortoise.fields.base import VALUE
 class ListField(Field[VALUE]):
     base_field = Field[VALUE]
     labels: tuple
-
-    # def __getattr__(self, attr):
-    #     return None
 
     def to_python_value(self, value):
         if value is not None and not isinstance(value, self.field_type):
@@ -40,13 +38,13 @@ class RangeField(CollectionField[Range]):
         cls.SQL_TYPE = "numrange" if precision else "int4range"
         return super().__new__(cls)
 
-    def to_python_value(self, value):
+    def to_python_value(self, value: tuple):
         if value is not None and not isinstance(value, self.field_type):
             value = self.field_type(*[float(v) for v in value])
         self.validate(value)
         return (value.lower, value.upper) if value else value
 
-    def to_db_value(self, value: Any, instance: "Union[Type[Model], Model]") -> Any:
+    def to_db_value(self, value: Any, instance: Model) -> Any:
         if value is not None and not isinstance(value, self.field_type):
             value = self.field_type(*value)  # pylint: disable=E1102
         self.validate(value)
