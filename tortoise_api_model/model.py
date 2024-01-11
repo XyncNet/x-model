@@ -1,12 +1,10 @@
 from datetime import datetime
-from enum import IntEnum
-from typing import Set
 from passlib.context import CryptContext
-from pydantic import create_model, BaseModel as BasePyd
+from pydantic import BaseModel as BasePyd
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
-from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
-from tortoise.contrib.pydantic.creator import PydanticMeta
+from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel, PydanticListModel
+from tortoise.contrib.pydantic.creator import PydanticMeta, pydantic_queryset_creator
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -28,26 +26,12 @@ pm_out.max_recursion = 1
 pm_out.backward_relations = False
 
 
-class PydList(BasePyd):
-    data: list[PydanticModel]
-    total: int
-
-class FetchType(IntEnum):
-    fk = 0
-    o2o = 1
-    m2m = 2
-    backward_o2o = 3
-    backward_fk = 4
-
-Fetchness = Set[FetchType]
-
 class Model(BaseModel):
     id: int = IntField(pk=True)
     _name: str = 'name'
     _icon: str = '' # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
-    _extra_fetches: {str: str} = {}
-    _pyd: type[PydanticModel] = None
-    _pyds: type[PydList] = None
+    __pyd: type[PydanticModel] = None
+    __pyds: type[PydanticListModel] = None
 
     @classmethod
     def cols(cls) -> list[dict]:
@@ -56,16 +40,11 @@ class Model(BaseModel):
 
     @classmethod
     def pyd(cls, inp: bool = False) -> type[PydanticModel]:
-        return cls._pyd or pydantic_model_creator(cls, **{'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out})
+        return cls.__pyd or pydantic_model_creator(cls, **{'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out})
 
     @classmethod
-    def pyds(cls) -> type[PydList]:
-        return create_model(
-            cls.__name__ + 'List',
-            data=(list[cls.pyd()], []),
-            total=(int, 0),
-            __base__=PydList,
-        )
+    def pyds(cls) -> type[PydanticListModel]:
+        return cls.__pyds or pydantic_queryset_creator(cls)
 
     @classmethod
     def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
@@ -75,18 +54,17 @@ class Model(BaseModel):
             # todo: search and filters
 
     @classmethod
-    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
+    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydanticListModel:
         query = cls.all().limit(limit).offset(offset)
         pyd: PydanticModel.__class__ = cls.pyd()
-        data = await pyd.from_queryset(query)
-        total = len(data)+offset if limit-len(data) else await cls.all().count()
-        return cls.pyds()(data=data, total=total)
+        # total = len(data)+offset if limit-len(data) else await cls.all().count()
+        pyds = await cls.pyds().from_queryset(query) # , total=total
+        return pyds
 
-    def repr(self, caller: type[BaseModel] = None):
+    def repr(self):
         if self._name in self._meta.db_fields:
             return getattr(self, self._name)
-        rel_repr = [getattr(rel, key) for field, key in self._extra_fetches.items() if (rel:=getattr(self, field)) and not (caller and caller._meta.db_table==field)]
-        return '-'.join(rel_repr) or self.__repr__()
+        return self.__repr__()
 
     @classmethod
     async def getOrCreateByName(cls, name: str) -> BaseModel:

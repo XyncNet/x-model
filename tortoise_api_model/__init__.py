@@ -5,7 +5,7 @@ from tortoise.exceptions import DBConnectionError
 
 from .enum import FieldType
 from .field import PointField, RangeField, PolygonField, CollectionField, ListField, DatetimeSecField
-from .model import Model, TsModel, User, PydList
+from .model import Model, TsModel, User
 from .func import Array
 
 
