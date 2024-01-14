@@ -1,10 +1,9 @@
+from copy import copy
 from datetime import datetime
 from passlib.context import CryptContext
-from pydantic import BaseModel as BasePyd
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
-from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel, PydanticListModel
-from tortoise.contrib.pydantic.creator import PydanticMeta, pydantic_queryset_creator
+from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -17,21 +16,16 @@ from tortoise.queryset import QuerySet
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.enum import UserStatus, UserRole
 from tortoise_api_model.field import DatetimeSecField, SetField
-
-pm_in = PydanticMeta
-pm_in.exclude_raw_fields = False
-pm_in.max_recursion = 0 # no need to disable backward relations, because recursion=0
-pm_out = PydanticMeta
-pm_out.max_recursion = 1
-pm_out.backward_relations = False
+from tortoise_api_model.pydantic import In, Out, ListItem, PydList
 
 
 class Model(BaseModel):
     id: int = IntField(pk=True)
     _name: str = 'name'
     _icon: str = '' # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
-    __pyd: type[PydanticModel] = None
-    __pyds: type[PydanticListModel] = None
+    _pydIn: type[PydanticModel] = None
+    _pyd: type[PydanticModel] = None
+    _pydListItem: type[PydanticModel] = None
 
     @classmethod
     def cols(cls) -> list[dict]:
@@ -39,12 +33,26 @@ class Model(BaseModel):
         return [{'data': c, 'orderable': c not in meta.fetch_fields or c in meta.fk_fields} for c in meta.fields_map if not c.endswith('_id')]
 
     @classmethod
-    def pyd(cls, inp: bool = False) -> type[PydanticModel]:
-        return cls.__pyd or pydantic_model_creator(cls, **{'name': cls.__name__+'-In', 'meta_override': pm_in, 'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')} if inp else {'name': cls.__name__, 'meta_override': pm_out})
+    def pyd(cls) -> type[PydanticModel]:
+        if not cls._pyd:
+            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=Out)
+        return cls._pyd
 
     @classmethod
-    def pyds(cls) -> type[PydanticListModel]:
-        return cls.__pyds or pydantic_queryset_creator(cls)
+    def pydIn(cls) -> type[PydanticModel]:
+        if not cls._pydIn:
+            cls._pydIn = pydantic_model_creator(cls, name=cls.__name__+'In', meta_override=In, **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')})
+        return cls._pydIn
+
+    @classmethod
+    def pydListItem(cls) -> type[PydanticModel]:
+        if not cls._pydListItem:
+            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__+'ListItem', meta_override=ListItem)
+        return cls._pydListItem
+
+    @classmethod
+    def pydsList(cls) -> type[PydList]:
+        return copy(PydList[cls.pydListItem()])
 
     @classmethod
     def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
@@ -54,12 +62,12 @@ class Model(BaseModel):
             # todo: search and filters
 
     @classmethod
-    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydanticListModel:
-        query = cls.all().limit(limit).offset(offset)
-        pyd: PydanticModel.__class__ = cls.pyd()
-        # total = len(data)+offset if limit-len(data) else await cls.all().count()
-        pyds = await cls.pyds().from_queryset(query) # , total=total
-        return pyds
+    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
+        pyd = cls.pydListItem()
+        data = await pyd.from_queryset(cls.pageQuery(limit, offset))
+        total = l+offset if limit-(l:=len(data)) else await cls.all().count()
+        pyds = cls.pydsList()
+        return pyds(data=data, total=total)
 
     def repr(self):
         if self._name in self._meta.db_fields:
@@ -67,10 +75,11 @@ class Model(BaseModel):
         return self.__repr__()
 
     @classmethod
-    async def getOrCreateByName(cls, name: str) -> BaseModel:
-        if not (obj := await cls.get_or_none(**{cls._name: name})):
+    async def getOrCreateByName(cls, name: str, attr_name: str = None, def_dict: dict = None) -> BaseModel:
+        attr_name = attr_name or cls._name
+        if not (obj := await cls.get_or_none(**{attr_name: name})):
             next_id = (await cls.all().order_by('-id').first()).id + 1
-            obj = await cls.create(id=next_id, **{cls._name: name})
+            obj = await cls.create(id=next_id, **{attr_name: name}, **(def_dict or {}))
         return obj
 
 
@@ -189,26 +198,16 @@ class User(TsModel):
     _icon = 'user'
     _name = 'username'
 
-    def vrf_pwd(self, pwd: str) -> bool:
-        return CryptContext(schemes=["bcrypt"]).verify(pwd, self.password)
+    __cc = CryptContext(schemes=["bcrypt"])
+
+    def pwd_vrf(self, pwd: str) -> bool:
+        return self.__cc.verify(pwd, self.password)
+
+    @classmethod
+    async def create(cls, using_db = None, **kwargs) -> "User":
+        user: "User"|Model = await super().create(using_db, **kwargs)
+        await user.update_from_dict({'password': cls.__cc.hash(user.password)}).save(using_db, update_fields=['password'])
+        return user
 
     class Meta:
         table_description = "Users"
-
-class UserPwd(BasePyd):
-    password: str
-
-class UserReg(UserPwd):
-    username: str
-    email: str|None = None
-    phone: int|None = None
-
-class UserUpdate(BasePyd):
-    username: str
-    status: UserStatus
-    email: str|None
-    phone: int|None
-    role: UserRole
-
-class UserSchema(UserUpdate):
-    id: int
