@@ -1,6 +1,7 @@
 from copy import copy
 from datetime import datetime
 from passlib.context import CryptContext
+from pydantic import create_model
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
@@ -52,7 +53,12 @@ class Model(BaseModel):
 
     @classmethod
     def pydsList(cls) -> type[PydList]:
-        return copy(PydList[cls.pydListItem()])
+        return create_model(
+            cls.__name__ + 'List',
+            data=(list[cls.pydListItem()], []),
+            total=(int, 0),
+            __base__=PydList[cls.pydListItem()],
+        )
 
     @classmethod
     def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:

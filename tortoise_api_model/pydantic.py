@@ -12,7 +12,8 @@ In.max_recursion = 0
 
 Out = copy(PydanticMeta)
 Out.max_recursion = 1
-# Out.exclude_raw_fields = True # no need to override to the True, True is default
+Out.backward_relations = True
+Out.exclude_raw_fields = True # no need to override to the True, True is default
 
 ListItem = copy(Out)
 ListItem.backward_relations = False
