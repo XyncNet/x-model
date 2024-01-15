@@ -1,10 +1,10 @@
-from copy import copy
 from datetime import datetime
 from passlib.context import CryptContext
 from pydantic import create_model
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
+from tortoise.contrib.pydantic.creator import PydanticMeta
 from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
@@ -17,7 +17,7 @@ from tortoise.queryset import QuerySet
 from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
 from tortoise_api_model.enum import UserStatus, UserRole
 from tortoise_api_model.field import DatetimeSecField, SetField
-from tortoise_api_model.pydantic import In, Out, ListItem, PydList
+from tortoise_api_model.pydantic import PydList
 
 
 class Model(BaseModel):
@@ -36,19 +36,30 @@ class Model(BaseModel):
     @classmethod
     def pyd(cls) -> type[PydanticModel]:
         if not cls._pyd:
-            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=Out)
+            mo = PydanticMeta
+            mo.max_recursion = 1
+            mo.backward_relations = True
+            # mo.exclude_raw_fields = True # no need to override to the True, True is default
+            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=mo)
         return cls._pyd
 
     @classmethod
     def pydIn(cls) -> type[PydanticModel]:
         if not cls._pydIn:
-            cls._pydIn = pydantic_model_creator(cls, name=cls.__name__+'In', meta_override=In, **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')})
+            mo = PydanticMeta
+            mo.exclude_raw_fields = False
+            mo.max_recursion = 0
+            # mo.backward_relations = False # no need to disable backward relations, because recursion=0
+            cls._pydIn = pydantic_model_creator(cls, name=cls.__name__+'In', meta_override=mo, **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')})
         return cls._pydIn
 
     @classmethod
     def pydListItem(cls) -> type[PydanticModel]:
         if not cls._pydListItem:
-            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__+'ListItem', meta_override=ListItem)
+            mo = PydanticMeta
+            mo.max_recursion = 1
+            mo.backward_relations = False
+            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__+'ListItem', meta_override=mo)
         return cls._pydListItem
 
     @classmethod
