@@ -61,6 +61,11 @@ class Model(BaseModel):
         )
 
     @classmethod
+    async def one(cls, uid: int) -> PydanticModel:
+        q = cls.get(id=uid)
+        return await cls.pyd().from_queryset_single(q)
+
+    @classmethod
     def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
         return cls.all()\
             .order_by(*(order or []))\
