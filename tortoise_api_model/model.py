@@ -38,6 +38,7 @@ class Model(BaseModel):
         if not cls._pyd:
             mo = PydanticMeta
             mo.max_recursion = 1
+            mo.exclude_raw_fields = True
             mo.backward_relations = True
             # mo.exclude_raw_fields = True # no need to override to the True, True is default
             cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=mo)
@@ -58,7 +59,8 @@ class Model(BaseModel):
         if not cls._pydListItem:
             mo = PydanticMeta
             mo.max_recursion = 1
-            mo.backward_relations = False
+            mo.exclude_raw_fields = True # default: True
+            # mo.backward_relations = False # default: True
             cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__+'ListItem', meta_override=mo)
         return cls._pydListItem
 
