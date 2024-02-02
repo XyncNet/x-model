@@ -60,7 +60,7 @@ class Model(BaseModel):
             mo = PydanticMeta
             mo.max_recursion = 1
             mo.exclude_raw_fields = True # default: True
-            # mo.backward_relations = False # default: True
+            mo.backward_relations = False # default: True
             cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__+'ListItem', meta_override=mo)
         return cls._pydListItem
 
@@ -79,16 +79,16 @@ class Model(BaseModel):
         return await cls.pyd().from_queryset_single(q)
 
     @classmethod
-    def pageQuery(cls, limit: int = 1000, offset: int = 0, order: [] = None, reps: bool = False) -> QuerySet:
+    def pageQuery(cls, limit: int = 1000, offset: int = 0, sorts: list[str] = None, reps: bool = False) -> QuerySet:
         return cls.all()\
-            .order_by(*(order or []))\
+            .order_by(*(sorts or []))\
             .limit(limit).offset(offset)
             # todo: search and filters
 
     @classmethod
-    async def pagePyd(cls, limit: int = 1000, offset: int = 0) -> PydList:
+    async def pagePyd(cls, limit: int = 1000, offset: int = 0, sorts: list[str] = None) -> PydList:
         pyd = cls.pydListItem()
-        data = await pyd.from_queryset(cls.pageQuery(limit, offset))
+        data = await pyd.from_queryset(cls.pageQuery(limit, offset, sorts))
         total = l+offset if limit-(l:=len(data)) else await cls.all().count()
         pyds = cls.pydsList()
         return pyds(data=data, total=total)
