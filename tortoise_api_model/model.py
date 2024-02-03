@@ -24,6 +24,7 @@ class Model(BaseModel):
     id: int = IntField(pk=True)
     _name: str = 'name'
     _icon: str = '' # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
+    _sorts: list[str] = ['-id']
     _pydIn: type[PydanticModel] = None
     _pyd: type[PydanticModel] = None
     _pydListItem: type[PydanticModel] = None
@@ -79,16 +80,16 @@ class Model(BaseModel):
         return await cls.pyd().from_queryset_single(q)
 
     @classmethod
-    def pageQuery(cls, limit: int = 1000, offset: int = 0, sorts: list[str] = None, reps: bool = False) -> QuerySet:
-        return cls.all()\
-            .order_by(*(sorts or []))\
-            .limit(limit).offset(offset)
-            # todo: search and filters
+    def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None) -> QuerySet:
+        query = cls.all().order_by(*sorts).limit(limit).offset(offset)
+        if q:
+            query = query.filter(**{f'{cls._name}__startswith': q})
+        return query
 
     @classmethod
-    async def pagePyd(cls, limit: int = 1000, offset: int = 0, sorts: list[str] = None) -> PydList:
+    async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None) -> PydList:
         pyd = cls.pydListItem()
-        data = await pyd.from_queryset(cls.pageQuery(limit, offset, sorts))
+        data = await pyd.from_queryset(cls.pageQuery(sorts, limit, offset, q))
         total = l+offset if limit-(l:=len(data)) else await cls.all().count()
         pyds = cls.pydsList()
         return pyds(data=data, total=total)
