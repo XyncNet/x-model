@@ -80,16 +80,20 @@ class Model(BaseModel):
         return await cls.pyd().from_queryset_single(q)
 
     @classmethod
-    def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None) -> QuerySet:
-        query = cls.all().order_by(*sorts).limit(limit).offset(offset)
+    def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, **kwargs) -> QuerySet:
+        query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*kwargs)
+        if '__' in cls._name: # if name field needs to be fetched
+            query = query.prefetch_related('__'.join(cls._name.split('__')[:-1]))
         if q:
-            query = query.filter(**{f'{cls._name}__startswith': q})
+            query = query.filter(**{f'{cls._name}__istartswith': q})
         return query
 
     @classmethod
-    async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None) -> PydList:
+    async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, **kwargs) -> PydList:
         pyd = cls.pydListItem()
-        data = await pyd.from_queryset(cls.pageQuery(sorts, limit, offset, q))
+        kwargs = {k: v for k, v in kwargs.items() if v}
+        query = cls.pageQuery(sorts, limit, offset, q, **kwargs)
+        data = await pyd.from_queryset(query)
         total = l+offset if limit-(l:=len(data)) else await cls.all().count()
         pyds = cls.pydsList()
         return pyds(data=data, total=total)
