@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+
 class FieldType(IntEnum):
     # str = 1
     # txt = 2
@@ -17,11 +18,13 @@ class FieldType(IntEnum):
     collection = 5
     list = 6
 
+
 class UserStatus(IntEnum):
-    Inactive = 0
-    Wait = 1  # waiting for approve
-    Test = 2  # trial
-    Active = 3
+    banned = 0
+    wait = 1  # waiting for approve
+    test = 2  # trial
+    active = 3
+
 
 class UserRole(IntEnum):
     Client = 1
@@ -29,7 +32,8 @@ class UserRole(IntEnum):
     Manager = 3
     Admin = 4
 
+
 class Scope(IntEnum):
     Read = 1
     Write = 2
-    All = 3 # not only my
+    All = 3  # not only my

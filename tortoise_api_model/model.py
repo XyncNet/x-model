@@ -217,7 +217,7 @@ class TsModel(Model):
 
 class User(TsModel):
     id: int = SmallIntField(True)
-    status: UserStatus = IntEnumField(UserStatus, default=UserStatus.Wait)
+    status: UserStatus = IntEnumField(UserStatus, default=UserStatus.wait)
     username: str = CharField(95, unique=True)
     email: str|None = CharField(100, unique=True, null=True)
     password: str|None = CharField(60, null=True)
