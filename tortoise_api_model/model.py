@@ -5,7 +5,7 @@ from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.contrib.pydantic.creator import PydanticMeta
-from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField,\
+from tortoise.fields import Field, CharField, IntField, SmallIntField, BigIntField, DecimalField, FloatField, \
     TextField, BooleanField, DatetimeField, DateField, TimeField, JSONField, ForeignKeyRelation, OneToOneRelation, \
     ManyToManyRelation, ForeignKeyNullableRelation, OneToOneNullableRelation, IntEnumField
 from tortoise.fields.data import IntEnumFieldInstance, CharEnumFieldInstance
@@ -23,7 +23,7 @@ from tortoise_api_model.pydantic import PydList
 class Model(BaseModel):
     id: int = IntField(pk=True)
     _name: str = 'name'
-    _icon: str = '' # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
+    _icon: str = ''  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _sorts: list[str] = ['-id']
     _pydIn: type[PydanticModel] = None
     _pyd: type[PydanticModel] = None
@@ -32,7 +32,8 @@ class Model(BaseModel):
     @classmethod
     def cols(cls) -> list[dict]:
         meta = cls._meta
-        return [{'data': c, 'orderable': c not in meta.fetch_fields or c in meta.fk_fields} for c in meta.fields_map if not c.endswith('_id')]
+        return [{'data': c, 'orderable': c not in meta.fetch_fields or c in meta.fk_fields} for c in meta.fields_map if
+                not c.endswith('_id')]
 
     @classmethod
     def pyd(cls) -> type[PydanticModel]:
@@ -52,7 +53,8 @@ class Model(BaseModel):
             mo.exclude_raw_fields = False
             mo.max_recursion = 0
             # mo.backward_relations = False # no need to disable backward relations, because recursion=0
-            cls._pydIn = pydantic_model_creator(cls, name=cls.__name__+'In', meta_override=mo, **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')})
+            cls._pydIn = pydantic_model_creator(cls, name=cls.__name__ + 'In', meta_override=mo,
+                                                **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')})
         return cls._pydIn
 
     @classmethod
@@ -60,9 +62,9 @@ class Model(BaseModel):
         if not cls._pydListItem:
             mo = PydanticMeta
             mo.max_recursion = 1
-            mo.exclude_raw_fields = True # default: True
-            mo.backward_relations = False # default: True
-            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__+'ListItem', meta_override=mo)
+            mo.exclude_raw_fields = True  # default: True
+            mo.backward_relations = False  # default: True
+            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__ + 'ListItem', meta_override=mo)
         return cls._pydListItem
 
     @classmethod
@@ -82,7 +84,7 @@ class Model(BaseModel):
     @classmethod
     def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, **kwargs) -> QuerySet:
         query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*kwargs)
-        if '__' in cls._name: # if name field needs to be fetched
+        if '__' in cls._name:  # if name field needs to be fetched
             query = query.prefetch_related('__'.join(cls._name.split('__')[:-1]))
         if q:
             query = query.filter(**{f'{cls._name}__istartswith': q})
@@ -94,7 +96,7 @@ class Model(BaseModel):
         kwargs = {k: v for k, v in kwargs.items() if v}
         query = cls.pageQuery(sorts, limit, offset, q, **kwargs)
         data = await pyd.from_queryset(query)
-        total = l+offset if limit-(l:=len(data)) else await cls.all().count()
+        total = l + offset if limit - (l := len(data)) else await cls.all().count()
         pyds = cls.pydsList()
         return pyds(data=data, total=total)
 
@@ -111,9 +113,8 @@ class Model(BaseModel):
             obj = await cls.create(id=next_id, **{attr_name: name}, **(def_dict or {}))
         return obj
 
-
     @classmethod
-    async def upsert(cls, data: dict, oid = None):
+    async def upsert(cls, data: dict, oid=None):
         meta: MetaInfo = cls._meta
 
         # pop fields for relations from general data dict
@@ -189,7 +190,7 @@ class Model(BaseModel):
             }
             return type2inputs[ft]
 
-        def field2input(key: str, field: Field):
+        def field2input(_key: str, field: Field):
             attrs: dict = {'required': not field.null}
             if isinstance(field, CharEnumFieldInstance):
                 attrs.update({'options': {en.name: en.value for en in field.enum_type}})
@@ -197,7 +198,7 @@ class Model(BaseModel):
                 attrs.update({'options': {en.value: en.name.replace('_', ' ') for en in field.enum_type}})
             elif isinstance(field, RelationalField):
                 attrs.update({'source_field': field.source_field})  # 'table': attrs[key]['multiple'],
-            elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)): # noqa
+            elif field.generated or ('auto_now' in field.__dict__ and (field.auto_now or field.auto_now_add)):  # noqa
                 attrs.update({'auto': True})
             return {**type2input(type(field)), **attrs}
 
@@ -208,8 +209,8 @@ class Model(BaseModel):
 
 
 class TsModel(Model):
-    created_at: datetime|None = DatetimeSecField(auto_now_add=True)
-    updated_at: datetime|None = DatetimeSecField(auto_now=True)
+    created_at: datetime | None = DatetimeSecField(auto_now_add=True)
+    updated_at: datetime | None = DatetimeSecField(auto_now=True)
 
     class Meta:
         abstract = True
@@ -219,9 +220,9 @@ class User(TsModel):
     id: int = BigIntField(True)
     status: UserStatus = IntEnumField(UserStatus, default=UserStatus.wait)
     username: str = CharField(95, unique=True)
-    email: str|None = CharField(100, unique=True, null=True)
-    password: str|None = CharField(60, null=True)
-    phone: int|None = BigIntField(null=True)
+    email: str | None = CharField(100, unique=True, null=True)
+    password: str | None = CharField(60, null=True)
+    phone: int | None = BigIntField(null=True)
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 
     _icon = 'user'
@@ -233,10 +234,15 @@ class User(TsModel):
         return self.__cc.verify(pwd, self.password)
 
     @classmethod
-    async def create(cls, using_db = None, **kwargs) -> "User":
-        user: "User"|Model = await super().create(using_db, **kwargs)
-        await user.update_from_dict({'password': cls.__cc.hash(user.password)}).save(using_db, update_fields=['password'])
+    async def create(cls, using_db=None, **kwargs) -> "User":
+        user: "User" | Model = await super().create(using_db, **kwargs)
+        if pwd := kwargs.get('password'):
+            await user.set_pwd(pwd)
         return user
+
+    async def set_pwd(self, pwd: str = password) -> None:
+        self.password = self.__cc.hash(pwd)
+        await self.save()
 
     class Meta:
         table_description = "Users"
