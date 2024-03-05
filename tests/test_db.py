@@ -9,4 +9,4 @@ load_dotenv()
 
 
 def test_init_db():
-    assert isinstance(run(init_db(env('PG_DSN'), model)), AsyncpgDBClient), "DB corrupt"
+    assert isinstance(run(init_db(env('DB_URL'), model)), AsyncpgDBClient), "DB corrupt"
