@@ -25,6 +25,7 @@ class Model(BaseModel):
     _name: str = 'name'
     _icon: str = ''  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _sorts: list[str] = ['-id']
+    _ownable_fields: dict[str, str | None] = {'one': None, 'list': None, 'in': None}
     _pydIn: type[PydanticModel] = None
     _pyd: type[PydanticModel] = None
     _pydListItem: type[PydanticModel] = None
@@ -53,8 +54,14 @@ class Model(BaseModel):
             mo.exclude_raw_fields = False
             mo.max_recursion = 0
             # mo.backward_relations = False # no need to disable backward relations, because recursion=0
-            cls._pydIn = pydantic_model_creator(cls, name=cls.__name__ + 'In', meta_override=mo,
-                                                **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')})
+            opts = tuple(k for k, v in cls._meta.fields_map.items() if not v.required)
+            cls._pydIn = pydantic_model_creator(
+                cls,
+                name=cls.__name__ + 'In',
+                meta_override=mo,
+                optional=opts,
+                **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')}
+            )
         return cls._pydIn
 
     @classmethod
@@ -77,26 +84,30 @@ class Model(BaseModel):
         )
 
     @classmethod
-    async def one(cls, uid: int) -> PydanticModel:
-        q = cls.get(id=uid)
+    async def one(cls, uid: int, owner: int = None, **kwargs) -> PydanticModel:
+        if owner and (of := cls._ownable_fields.get('one')):
+            kwargs.update({of: owner})
+        q = cls.get(id=uid, **kwargs)
         return await cls.pyd().from_queryset_single(q)
 
     @classmethod
-    def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, **kwargs) -> QuerySet:
+    def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs) -> QuerySet:
         query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*kwargs)
         if '__' in cls._name:  # if name field needs to be fetched
             query = query.prefetch_related('__'.join(cls._name.split('__')[:-1]))
         if q:
             query = query.filter(**{f'{cls._name}__istartswith': q})
+        if owner and (of := cls._ownable_fields.get('list')):
+            query = query.filter(**{of: owner})
         return query
 
     @classmethod
-    async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, **kwargs) -> PydList:
+    async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs) -> PydList:
         pyd = cls.pydListItem()
         kwargs = {k: v for k, v in kwargs.items() if v}
-        query = cls.pageQuery(sorts, limit, offset, q, **kwargs)
+        query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
         data = await pyd.from_queryset(query)
-        total = l + offset if limit - (l := len(data)) else await cls.all().count()
+        total = li + offset if limit - (li := len(data)) else await cls.all().count()
         pyds = cls.pydsList()
         return pyds(data=data, total=total)
 

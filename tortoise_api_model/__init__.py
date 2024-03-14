@@ -9,10 +9,11 @@ from .model import Model, TsModel, User
 from .func import Array
 
 
-async def init_db(dsn: str, models: ModuleType) -> AsyncpgDBClient|str:
+async def init_db(dsn: str, models: ModuleType, create_tables: bool = False) -> AsyncpgDBClient|str:
     try:
         await Tortoise.init(db_url=dsn, modules={'models': [models]})
-        await Tortoise.generate_schemas()
+        if create_tables:
+            await Tortoise.generate_schemas()
         cn: AsyncpgDBClient = connections.get('default')
     except (ConfigurationError, DBConnectionError) as ce:
         return ce.args[0]
