@@ -1,6 +1,6 @@
 from datetime import datetime
 from passlib.context import CryptContext
-from pydantic import create_model
+from pydantic import create_model, ConfigDict
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
@@ -37,18 +37,17 @@ class Model(BaseModel):
                 not c.endswith('_id')]
 
     @classmethod
-    def pyd(cls) -> type[PydanticModel]:
+    def pyd(cls, max_recursion: int = 1, backward_relations: bool = True) -> type[PydanticModel]:
         if not cls._pyd:
             mo = PydanticMeta
-            mo.max_recursion = 1
-            mo.exclude_raw_fields = True
-            mo.backward_relations = True
-            # mo.exclude_raw_fields = True # no need to override to the True, True is default
+            mo.max_recursion = max_recursion
+            mo.exclude_raw_fields = bool(max_recursion)  # default: True
+            mo.backward_relations = backward_relations  # default: True
             cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=mo)
         return cls._pyd
 
     @classmethod
-    def pydIn(cls) -> type[PydanticModel]:
+    def pydIn(cls, extra: bool = False) -> type[PydanticModel]:
         if not cls._pydIn:
             mo = PydanticMeta
             mo.exclude_raw_fields = False
@@ -60,17 +59,19 @@ class Model(BaseModel):
                 name=cls.__name__ + 'In',
                 meta_override=mo,
                 optional=opts,
-                **{'exclude_readonly': True, 'exclude': ('created_at', 'updated_at')}
+                exclude_readonly=True,
+                exclude=('created_at', 'updated_at'),
+                model_config=ConfigDict(extra='allow' if extra else 'forbid')
             )
         return cls._pydIn
 
     @classmethod
-    def pydListItem(cls) -> type[PydanticModel]:
+    def pydListItem(cls, max_recursion: int = 0, backward_relations: bool = False) -> type[PydanticModel]:
         if not cls._pydListItem:
             mo = PydanticMeta
-            mo.max_recursion = 1
-            mo.exclude_raw_fields = True  # default: True
-            mo.backward_relations = False  # default: True
+            mo.max_recursion = max_recursion
+            mo.exclude_raw_fields = bool(max_recursion)  # default: True
+            mo.backward_relations = backward_relations  # default: True
             cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__ + 'ListItem', meta_override=mo)
         return cls._pydListItem
 
@@ -92,11 +93,11 @@ class Model(BaseModel):
 
     @classmethod
     def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs) -> QuerySet:
-        query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*kwargs)
+        query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*(cls._meta.fetch_fields & set(kwargs)))
         if '__' in cls._name:  # if name field needs to be fetched
             query = query.prefetch_related('__'.join(cls._name.split('__')[:-1]))
         if q:
-            query = query.filter(**{f'{cls._name}__istartswith': q})
+            query = query.filter(**{f'{cls._name}__icontains': q})
         if owner and (of := cls._ownable_fields.get('list')):
             query = query.filter(**{of: owner})
         return query
