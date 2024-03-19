@@ -47,7 +47,7 @@ class Model(BaseModel):
         return cls._pyd
 
     @classmethod
-    def pydIn(cls, extra: bool = False) -> type[PydanticModel]:
+    def pydIn(cls) -> type[PydanticModel]:
         if not cls._pydIn:
             mo = PydanticMeta
             mo.exclude_raw_fields = False
@@ -61,7 +61,7 @@ class Model(BaseModel):
                 optional=opts,
                 exclude_readonly=True,
                 exclude=('created_at', 'updated_at'),
-                model_config=ConfigDict(extra='allow' if extra else 'forbid')
+                model_config=ConfigDict(extra='allow' if cls._meta.m2m_fields else 'forbid')
             )
         return cls._pydIn
 
@@ -131,8 +131,8 @@ class Model(BaseModel):
 
         # pop fields for relations from general data dict
         m2ms = {k: data.pop(k) for k in meta.m2m_fields if k in data}
-        bfks = {k: data.pop(k) for k in meta.backward_fk_fields if k in data}
-        bo2os = {k: data.pop(k) for k in meta.backward_o2o_fields if k in data}
+        # bfks = {k: data.pop(k) for k in meta.backward_fk_fields if k in data}
+        # bo2os = {k: data.pop(k) for k in meta.backward_o2o_fields if k in data}
 
         # save general model
         # if pk := meta.pk_attr in data.keys():
@@ -147,15 +147,16 @@ class Model(BaseModel):
         for k, ids in m2ms.items():
             m2m_rel: ManyToManyRelation = getattr(obj, k)
             items = [await m2m_rel.remote_model[i] for i in ids]
+            r = await m2m_rel.clear()  # for updating, not just adding
             await m2m_rel.add(*items)
-        for k, ids in bfks.items():
-            bfk_rel: ReverseRelation = getattr(obj, k)
-            items = [await bfk_rel.remote_model[i] for i in ids]
-            [await item.update_from_dict({bfk_rel.relation_field: obj.pk}).save() for item in items]
-        for k, oid in bo2os.items():
-            bo2o_rel: QuerySet = getattr(obj, k)
-            item = await bo2o_rel.model[oid]
-            await item.update_from_dict({obj._meta.db_table: obj}).save()
+        # for k, ids in bfks.items():
+        #     bfk_rel: ReverseRelation = getattr(obj, k)
+        #     items = [await bfk_rel.remote_model[i] for i in ids]
+        #     [await item.update_from_dict({bfk_rel.relation_field: obj.pk}).save() for item in items]
+        # for k, oid in bo2os.items():
+        #     bo2o_rel: QuerySet = getattr(obj, k)
+        #     item = await bo2o_rel.model[oid]
+        #     await item.update_from_dict({obj._meta.db_table: obj}).save()
 
         await obj.fetch_related(*cls._meta.fetch_fields)
         return obj
