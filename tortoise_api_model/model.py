@@ -61,8 +61,9 @@ class Model(BaseModel):
                 optional=opts,
                 exclude_readonly=True,
                 exclude=('created_at', 'updated_at'),
-                model_config=ConfigDict(extra='allow' if cls._meta.m2m_fields else 'forbid')
             )
+            if m2ms := cls._meta.m2m_fields:
+                cls._pydIn = create_model(cls._pydIn.__name__, __base__=cls._pydIn, **{m2m: (list[int] | None, None) for m2m in m2ms})
         return cls._pydIn
 
     @classmethod
