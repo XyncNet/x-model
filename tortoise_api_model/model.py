@@ -67,13 +67,13 @@ class Model(BaseModel):
         return cls._pydIn
 
     @classmethod
-    def pydListItem(cls, max_recursion: int = 0, backward_relations: bool = False) -> type[PydanticModel]:
+    def pydListItem(cls, max_recursion: int = 2, backward_relations: bool = False, exclude: tuple[str] = ()) -> type[PydanticModel]:
         if not cls._pydListItem:
             mo = PydanticMeta
             mo.max_recursion = max_recursion
-            mo.exclude_raw_fields = bool(max_recursion)  # default: True
+            mo.exclude_raw_fields = False  # default: True
             mo.backward_relations = backward_relations  # default: True
-            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__ + 'ListItem', meta_override=mo)
+            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__ + 'ListItem', meta_override=mo, exclude=exclude)
         return cls._pydListItem
 
     @classmethod
