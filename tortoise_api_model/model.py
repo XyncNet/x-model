@@ -41,13 +41,13 @@ class Model(BaseModel):
         if not cls._pyd:
             mo = PydanticMeta
             mo.max_recursion = max_recursion
-            mo.exclude_raw_fields = bool(max_recursion)  # default: True
+            mo.exclude_raw_fields = False  # default: True
             mo.backward_relations = backward_relations  # default: True
             cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=mo)
         return cls._pyd
 
     @classmethod
-    def pydIn(cls) -> type[PydanticModel]:
+    def pydIn(cls, exclude: tuple[str] = ()) -> type[PydanticModel]:
         if not cls._pydIn:
             mo = PydanticMeta
             mo.exclude_raw_fields = False
@@ -60,14 +60,14 @@ class Model(BaseModel):
                 meta_override=mo,
                 optional=opts,
                 exclude_readonly=True,
-                exclude=('created_at', 'updated_at'),
+                exclude=('created_at', 'updated_at', *exclude),
             )
             if m2ms := cls._meta.m2m_fields:
                 cls._pydIn = create_model(cls._pydIn.__name__, __base__=cls._pydIn, **{m2m: (list[int] | None, None) for m2m in m2ms})
         return cls._pydIn
 
     @classmethod
-    def pydListItem(cls, max_recursion: int = 2, backward_relations: bool = False, exclude: tuple[str] = ()) -> type[PydanticModel]:
+    def pydListItem(cls, max_recursion: int = 1, backward_relations: bool = False, exclude: tuple[str] = ()) -> type[PydanticModel]:
         if not cls._pydListItem:
             mo = PydanticMeta
             mo.max_recursion = max_recursion
