@@ -106,7 +106,7 @@ class Model(BaseModel):
     @classmethod
     async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs) -> PydList:
         pyd = cls.pydListItem()
-        kwargs = {k: v for k, v in kwargs.items() if v}
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
         query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
         data = await pyd.from_queryset(query)
         total = li + offset if limit - (li := len(data)) else await cls.all().count()
