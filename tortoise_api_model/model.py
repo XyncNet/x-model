@@ -29,6 +29,7 @@ class Model(BaseModel):
     _pydIn: type[PydanticModel] = None
     _pyd: type[PydanticModel] = None
     _pydListItem: type[PydanticModel] = None
+    _permissions: tuple[bool,bool,bool] = True, True, True
 
     @classmethod
     def cols(cls) -> list[dict]:
@@ -233,7 +234,7 @@ class TsModel(Model):
 class User(TsModel):
     id: int = BigIntField(True)
     status: UserStatus = IntEnumField(UserStatus, default=UserStatus.wait)
-    username: str = CharField(95, unique=True)
+    username: str | None = CharField(95, unique=True, null=True)
     email: str | None = CharField(100, unique=True, null=True)
     password: str | None = CharField(60, null=True)
     phone: int | None = BigIntField(null=True)
