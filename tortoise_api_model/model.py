@@ -38,13 +38,13 @@ class Model(BaseModel):
                 not c.endswith('_id')]
 
     @classmethod
-    def pyd(cls, max_recursion: int = 1, backward_relations: bool = True) -> type[PydanticModel]:
-        if not cls._pyd:
+    def pyd(cls, max_recursion: int = 1, backward_relations: bool = True, exclude: tuple[str] = (), include: tuple[str] = (), force: bool = False) -> type[PydanticModel]:
+        if not cls._pyd or force:
             mo = PydanticMeta
             mo.max_recursion = max_recursion
             # mo.exclude_raw_fields = False  # default: True
             mo.backward_relations = backward_relations  # default: True
-            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=mo)
+            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=mo, exclude=exclude, include=include)
         return cls._pyd
 
     @classmethod
@@ -68,13 +68,13 @@ class Model(BaseModel):
         return cls._pydIn
 
     @classmethod
-    def pydListItem(cls, max_recursion: int = 1, backward_relations: bool = False, exclude: tuple[str] = ()) -> type[PydanticModel]:
-        if not cls._pydListItem:
+    def pydListItem(cls, max_recursion: int = 1, backward_relations: bool = False, exclude: tuple[str] = (), include: tuple[str] = (), force: bool = False) -> type[PydanticModel]:
+        if not cls._pydListItem or force:
             mo = PydanticMeta
             mo.max_recursion = max_recursion
             mo.exclude_raw_fields = False  # default: True
             mo.backward_relations = backward_relations  # default: True
-            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__ + 'ListItem', meta_override=mo, exclude=exclude)
+            cls._pydListItem = pydantic_model_creator(cls, name=cls.__name__ + 'ListItem', meta_override=mo, exclude=exclude, include=include)
         return cls._pydListItem
 
     @classmethod
@@ -106,8 +106,9 @@ class Model(BaseModel):
 
     @classmethod
     async def pagePyd(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs) -> PydList:
-        pyd = cls.pydListItem()
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        pyd_args = {arg: kwargs.pop(arg) for arg in ('max_recursion', 'backward_relations', 'exclude', 'include') if arg in kwargs}
+        pyd = cls.pydListItem(**pyd_args, force=bool(pyd_args))
         query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
         data = await pyd.from_queryset(query)
         total = li + offset if limit - (li := len(data)) else await cls.all().count()
