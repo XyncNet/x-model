@@ -83,6 +83,7 @@ class Model(BaseModel):
             cls.__name__ + 'List',
             data=(list[cls.pydListItem()], []),
             total=(int, 0),
+            filtered=(int|None, None),
             __base__=PydList[cls.pydListItem()],
         )
 
@@ -111,9 +112,16 @@ class Model(BaseModel):
         pyd = cls.pydListItem(**pyd_args, force=bool(pyd_args))
         query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
         data = await pyd.from_queryset(query)
-        total = li + offset if limit - (li := len(data)) else await cls.all().count()
+        if limit - (li := len(data)):
+            filtered = total = li + offset
+        else:
+            total = await cls.all().count()
+            filtered_query = cls.filter(**kwargs)
+            if q:
+                filtered_query = filtered_query.filter(**{f'{cls._name}__icontains': q})
+            filtered = await filtered_query.count()
         pyds = cls.pydsList()
-        return pyds(data=data, total=total)
+        return pyds(data=data, total=total, filtered=filtered)
 
     def repr(self):
         if self._name in self._meta.db_fields:
