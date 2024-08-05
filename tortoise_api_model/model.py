@@ -1,6 +1,6 @@
 from datetime import datetime
 from passlib.context import CryptContext
-from pydantic import create_model, ConfigDict
+from pydantic import create_model
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
@@ -22,7 +22,7 @@ from tortoise_api_model.pydantic import PydList
 
 class Model(BaseModel):
     id: int = IntField(pk=True)
-    _name: str = 'name'
+    _name: set[str] = ['name']
     _icon: str = ''  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _sorts: list[str] = ['-id']
     _ownable_fields: dict[str, str | None] = {'one': None, 'list': None, 'in': None}
@@ -250,7 +250,7 @@ class User(TsModel):
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 
     _icon = 'user'
-    _name = 'username'
+    _name = ['username']
 
     __cc = CryptContext(schemes=["bcrypt"])
 

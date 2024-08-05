@@ -57,15 +57,18 @@ class PointField(CollectionField[Point]):
     base_field = FloatField
     labels = ("lat", "lon")
 
+
 class PolygonField(ListField[Polygon]):
     SQL_TYPE = "POLYGON"
     field_type = Polygon
     base_field = PointField
 
+
 class BoxField(ListField[Box]):
     SQL_TYPE = "BOX"
     field_type = Box
     base_field = PointField
+
 
 class DatetimeSecField(DatetimeField):
     class _db_postgres:
