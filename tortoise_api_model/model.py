@@ -22,7 +22,7 @@ from tortoise_api_model.pydantic import PydList
 
 class Model(BaseModel):
     id: int = IntField(pk=True)
-    _name: set[str] = ['name']
+    _name: set[str] = {'name'}
     _icon: str = ''  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _sorts: list[str] = ['-id']
     _ownable_fields: dict[str, str | None] = {'one': None, 'list': None, 'in': None}
@@ -96,9 +96,13 @@ class Model(BaseModel):
 
     @classmethod
     def pageQuery(cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs) -> QuerySet:
-        query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*(cls._meta.fetch_fields & set(kwargs)))
-        if '__' in cls._name:  # if name field needs to be fetched
-            query = query.prefetch_related('__'.join(cls._name.split('__')[:-1]))
+        rels, keys = [], ['id']
+        for nam in cls._name:
+            parts = nam.split('__')
+            if len(parts) > 1:
+                rels.append('__'.join(parts[:-1]))
+            keys.append(nam)
+        query = cls.filter(**kwargs).order_by(*sorts).limit(limit).offset(offset).prefetch_related(*(cls._meta.fetch_fields & set(kwargs)), *rels)
         if q:
             query = query.filter(**{f'{cls._name}__icontains': q})
         if owner and (of := cls._ownable_fields.get('list')):
@@ -111,6 +115,7 @@ class Model(BaseModel):
         pyd_args = {arg: kwargs.pop(arg) for arg in ('max_recursion', 'backward_relations', 'exclude', 'include') if arg in kwargs}
         pyd = cls.pydListItem(**pyd_args, force=bool(pyd_args))
         query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
+        rq = await query
         data = await pyd.from_queryset(query)
         if limit - (li := len(data)):
             filtered = total = li + offset
@@ -250,7 +255,7 @@ class User(TsModel):
     role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
 
     _icon = 'user'
-    _name = ['username']
+    _name = {'username'}
 
     __cc = CryptContext(schemes=["bcrypt"])
 
