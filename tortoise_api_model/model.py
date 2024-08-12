@@ -161,10 +161,11 @@ class Model(BaseModel):
 
         # save relations
         for k, ids in m2ms.items():
-            m2m_rel: ManyToManyRelation = getattr(obj, k)
-            items = [await m2m_rel.remote_model[i] for i in ids]
-            r = await m2m_rel.clear()  # for updating, not just adding
-            await m2m_rel.add(*items)
+            if ids:
+                m2m_rel: ManyToManyRelation = getattr(obj, k)
+                items = [await m2m_rel.remote_model[i] for i in ids]
+                r = await m2m_rel.clear()  # for updating, not just adding
+                await m2m_rel.add(*items)
         # for k, ids in bfks.items():
         #     bfk_rel: ReverseRelation = getattr(obj, k)
         #     items = [await bfk_rel.remote_model[i] for i in ids]

@@ -40,6 +40,7 @@ class Name(BaseModel):
     id: int
     text: str
     logo: str | None = None
+    selected: bool | None = None
 
 
 class Pagination(BaseModel):
