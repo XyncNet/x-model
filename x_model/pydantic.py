@@ -1,10 +1,10 @@
 from typing import TypeVar, Generic
 from pydantic import BaseModel, ConfigDict
 
-from tortoise_api_model.enum import UserStatus, UserRole
+from x_model.enum import UserStatus, UserRole
 
 
-RootModelType = TypeVar('RootModelType')
+RootModelType = TypeVar("RootModelType")
 
 
 class PydList(BaseModel, Generic[RootModelType]):
@@ -19,15 +19,15 @@ class UserPwd(BaseModel):
 
 class UserReg(UserPwd):
     username: str
-    email: str|None = None
-    phone: int|None = None
+    email: str | None = None
+    phone: int | None = None
 
 
 class UserUpdate(BaseModel):
     username: str
     status: UserStatus
-    email: str|None
-    phone: int|None
+    email: str | None
+    phone: int | None
     role: UserRole
 
 

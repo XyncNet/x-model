@@ -1,0 +1,42 @@
+[project]
+name = "x-model"
+requires-python = ">=3.11"
+authors = [
+    {name = "Mike Artemiev", email = "mixartemev@gmail.com"},
+]
+dependencies = [
+    'tortoise-orm[asyncpg]',
+    'passlib[bcrypt]',
+    'pydantic'
+]
+keywords = ["tortoise", "model", "crud", "generator", "api", "admin"]
+description = 'Base model for x-api'
+readme = "README.md"
+license = {text = "MIT"}
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/XyncNet/x-model"
+Repository = "https://github.com/XyncNet/x-model"
+
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["x_model"]
+
+[tool.setuptools_scm]
+version_scheme = "python-simplified-semver" # if "feature" in `branch_name` SEMVER_MINOR++ else SEMVER_PATCH++
+local_scheme = "no-local-version"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "build",
+    "twine",
+    "setuptools_scm",
+]
+
+[tool.ruff]
+line-length = 120
