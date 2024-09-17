@@ -38,10 +38,10 @@ from tortoise.fields.relational import (
 from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
 
-from x_model import FieldType, PointField, PolygonField, RangeField
-from x_model.enum import UserStatus, UserRole
-from x_model.field import DatetimeSecField, SetField
-from x_model.pydantic import PydList
+from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
+from tortoise_api_model.enum import UserStatus, UserRole
+from tortoise_api_model.field import DatetimeSecField, SetField
+from tortoise_api_model.pydantic import PydList
 
 
 class Model(BaseModel):

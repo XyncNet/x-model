@@ -1,4 +1,4 @@
-PACKAGE := x_model
+PACKAGE := tortoise_api_model
 VENV := venv
 VPYTHON := . $(VENV)/bin/activate && python
 

@@ -1,5 +1,0 @@
-passlib[bcrypt]
-pydantic
-pytest
-python-dotenv
-tortoise-orm[asyncpg]

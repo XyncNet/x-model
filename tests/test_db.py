@@ -3,7 +3,7 @@ from os import getenv as env
 from dotenv import load_dotenv
 from tortoise.backends.asyncpg import AsyncpgDBClient
 
-from x_model import init_db, model
+from tortoise_api_model import init_db, model
 
 load_dotenv()
 
