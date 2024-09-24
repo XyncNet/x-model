@@ -4,7 +4,6 @@ from pydantic import create_model
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
-from tortoise.contrib.pydantic.creator import PydanticMeta
 from tortoise.fields import (
     Field,
     CharField,
@@ -65,37 +64,29 @@ class Model(BaseModel):
         ]
 
     @classmethod
-    def pyd(
-        cls,
-        max_recursion: int = 1,
-        backward_relations: bool = True,
-        exclude: tuple[str, ...] = (),
-        include: tuple[str, ...] = (),
-        exclude_raw_fields: bool = True,
-        force: bool = False,
-    ) -> type[PydanticModel]:
-        if not cls._pyd or force:
-            mo = PydanticMeta
-            mo.max_recursion = max_recursion
-            mo.exclude_raw_fields = exclude_raw_fields  # default: True
-            mo.backward_relations = backward_relations  # default: True
-            cls._pyd = pydantic_model_creator(
-                cls, name=cls.__name__, meta_override=mo, exclude=exclude, include=include
-            )
+    def pyd(cls) -> type[PydanticModel]:
+        if not cls._pyd:
+            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=cls.PydanticMeta)
         return cls._pyd
 
     @classmethod
     def pydIn(cls, exclude: tuple[str] = ()) -> type[PydanticModel]:
         if not cls._pydIn:
-            mo = PydanticMeta
-            mo.exclude_raw_fields = False
-            mo.max_recursion = 0
-            # mo.backward_relations = False # no need to disable backward relations, because recursion=0
+            PydInMeta = type(
+                f"{cls.__name__}PydInMeta",
+                (cls.PydanticMeta,),
+                {
+                    "max_recursion": 0,  # default: 1
+                    "exclude_raw_fields": False,  # default: True
+                    # no need to disable backward relations, because recursion=0
+                    "backward_relations": False,  # default: True
+                },
+            )
             opts = tuple(k for k, v in cls._meta.fields_map.items() if not v.required)
             cls._pydIn = pydantic_model_creator(
                 cls,
                 name=cls.__name__ + "In",
-                meta_override=mo,
+                meta_override=PydInMeta,
                 optional=opts,
                 exclude_readonly=True,
                 exclude=("created_at", "updated_at", *exclude),
@@ -116,12 +107,17 @@ class Model(BaseModel):
         force: bool = False,
     ) -> type[PydanticModel]:
         if not cls._pydListItem or force:
-            mo = PydanticMeta
-            mo.max_recursion = max_recursion
-            mo.exclude_raw_fields = False  # default: True
-            mo.backward_relations = backward_relations  # default: True
+            PydListItemMeta = type(
+                f"{cls.__name__}PydListItemMeta",
+                (cls.PydanticMeta,),
+                {
+                    "max_recursion": max_recursion,  # default: 1
+                    "exclude_raw_fields": False,  # default: True
+                    "backward_relations": backward_relations,  # default: True
+                },
+            )
             cls._pydListItem = pydantic_model_creator(
-                cls, name=cls.__name__ + "ListItem", meta_override=mo, exclude=exclude, include=include
+                cls, name=cls.__name__ + "ListItem", meta_override=PydListItemMeta, exclude=exclude, include=include
             )
         return cls._pydListItem
 
@@ -298,6 +294,9 @@ class Model(BaseModel):
 
     class Meta:
         abstract = True
+
+    class PydanticMeta:
+        max_recursion = 1
 
 
 class TsModel(Model):
