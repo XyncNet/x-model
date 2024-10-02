@@ -70,28 +70,18 @@ class Model(BaseModel):
         return cls._pyd
 
     @classmethod
-    def pydIn(cls, exclude: tuple[str] = ()) -> type[PydanticModel]:
+    def pydIn(cls) -> type[PydanticModel]:
         if not cls._pydIn:
-            PydInMeta = type(
-                f"{cls.__name__}PydInMeta",
-                (cls.PydanticMeta,),
-                {
-                    "max_recursion": 0,  # default: 1
-                    "exclude_raw_fields": False,  # default: True
-                    # no need to disable backward relations, because recursion=0
-                    "backward_relations": False,  # default: True
-                },
-            )
             opts = tuple(k for k, v in cls._meta.fields_map.items() if not v.required)
             cls._pydIn = pydantic_model_creator(
                 cls,
                 name=cls.__name__ + "In",
-                meta_override=PydInMeta,
+                meta_override=cls.PydanticMetaIn,
                 optional=opts,
                 exclude_readonly=True,
-                exclude=("created_at", "updated_at", *exclude),
+                exclude=("created_at", "updated_at"),
             )
-            if m2ms := cls._meta.m2m_fields:
+            if m2ms := cls._meta.m2m_fields:  # hack for direct inserting m2m values
                 cls._pydIn = create_model(
                     cls._pydIn.__name__, __base__=cls._pydIn, **{m2m: (list[int] | None, None) for m2m in m2ms}
                 )
@@ -100,24 +90,27 @@ class Model(BaseModel):
     @classmethod
     def pydListItem(
         cls,
-        max_recursion: int = 1,
+        max_recursion: int = 0,
         backward_relations: bool = False,
         exclude: tuple[str, ...] = (),
         include: tuple[str, ...] = (),
         force: bool = False,
     ) -> type[PydanticModel]:
         if not cls._pydListItem or force:
-            PydListItemMeta = type(
+            type(
                 f"{cls.__name__}PydListItemMeta",
-                (cls.PydanticMeta,),
+                (cls.PydanticMetaListItem,),
                 {
                     "max_recursion": max_recursion,  # default: 1
-                    "exclude_raw_fields": False,  # default: True
                     "backward_relations": backward_relations,  # default: True
                 },
             )
             cls._pydListItem = pydantic_model_creator(
-                cls, name=cls.__name__ + "ListItem", meta_override=PydListItemMeta, exclude=exclude, include=include
+                cls,
+                name=cls.__name__ + "ListItem",
+                meta_override=cls.PydanticMetaListItem,
+                exclude=exclude,
+                include=include,
             )
         return cls._pydListItem
 
@@ -193,7 +186,7 @@ class Model(BaseModel):
 
     @classmethod
     async def getOrCreateByName(cls, name: str, attr_name: str = None, def_dict: dict = None) -> BaseModel:
-        attr_name = attr_name or cls._name
+        attr_name = attr_name or list(cls._name)[0]
         if not (obj := await cls.get_or_none(**{attr_name: name})):
             next_id = (await cls.all().order_by("-id").first()).id + 1
             obj = await cls.create(id=next_id, **{attr_name: name}, **(def_dict or {}))
@@ -296,7 +289,26 @@ class Model(BaseModel):
         abstract = True
 
     class PydanticMeta:
-        max_recursion = 1
+        #: If not empty, only fields this property contains will be in the pydantic model
+        # include: tuple[str, ...] = ()
+        # #: Fields listed in this property will be excluded from pydantic model
+        # exclude: tuple[str, ...] = ()
+        # #: Computed fields can be listed here to use in pydantic model
+        # computed: tuple[str, ...] = ()
+
+        exclude_raw_fields = False  # default: True
+        max_recursion: int = 1  # default: 3
+
+    class PydanticMetaIn:
+        max_recursion: int = 0  # default: 3
+        backward_relations: bool = False  # no need to disable when max_recursion=0  # default: True
+        exclude_raw_fields: bool = False  # default: True
+
+    class PydanticMetaListItem:
+        max_recursion: int = 0  # default: 3
+        backward_relations: bool = False  # default: True
+        exclude_raw_fields = False  # default: True
+        sort_alphabetically: bool = True  # default: False
 
 
 class TsModel(Model):
