@@ -65,8 +65,7 @@ class Model(BaseModel):
 
     @classmethod
     def pyd(cls) -> type[PydanticModel]:
-        if not cls._pyd:
-            cls._pyd = pydantic_model_creator(cls, name=cls.__name__, meta_override=cls.PydanticMeta)
+        cls._pyd = cls._pyd or pydantic_model_creator(cls)
         return cls._pyd
 
     @classmethod
@@ -88,29 +87,10 @@ class Model(BaseModel):
         return cls._pydIn
 
     @classmethod
-    def pydListItem(
-        cls,
-        max_recursion: int = 0,
-        backward_relations: bool = False,
-        exclude: tuple[str, ...] = (),
-        include: tuple[str, ...] = (),
-        force: bool = False,
-    ) -> type[PydanticModel]:
-        if not cls._pydListItem or force:
-            type(
-                f"{cls.__name__}PydListItemMeta",
-                (cls.PydanticMetaListItem,),
-                {
-                    "max_recursion": max_recursion,  # default: 1
-                    "backward_relations": backward_relations,  # default: True
-                },
-            )
+    def pydListItem(cls) -> type[PydanticModel]:
+        if not cls._pydListItem:
             cls._pydListItem = pydantic_model_creator(
-                cls,
-                name=cls.__name__ + "ListItem",
-                meta_override=cls.PydanticMetaListItem,
-                exclude=exclude,
-                include=include,
+                cls, name=cls.__name__ + "ListItem", meta_override=cls.PydanticMetaListItem
             )
         return cls._pydListItem
 
@@ -159,12 +139,7 @@ class Model(BaseModel):
         cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs
     ) -> PydList:
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
-        pyd_args = {
-            arg: kwargs.pop(arg)
-            for arg in ("max_recursion", "backward_relations", "exclude", "include")
-            if arg in kwargs
-        }
-        pyd = cls.pydListItem(**pyd_args, force=bool(pyd_args))
+        pyd = cls.pydListItem()
         query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
         await query
         data = await pyd.from_queryset(query)
