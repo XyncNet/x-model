@@ -5,7 +5,7 @@ python3 -m venv venv
 # Activate this environment
 source venv/bin/activate
 # Install dependencies
-pip install -r requirements.dev.txt
+pip install .
 
 # Create pg db
 createdb --U username -W dbname

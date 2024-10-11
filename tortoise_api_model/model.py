@@ -295,16 +295,22 @@ class TsModel(Model):
 
 
 class User(TsModel):
-    id: int = BigIntField(True)
-    status: UserStatus = IntEnumField(UserStatus, default=UserStatus.wait)
+    status: UserStatus = IntEnumField(UserStatus, default=UserStatus.WAIT)
     username: str | None = CharField(95, unique=True, null=True)
     email: str | None = CharField(100, unique=True, null=True)
     password: str | None = CharField(60, null=True)
     phone: int | None = BigIntField(null=True)
-    role: UserRole = IntEnumField(UserRole, default=UserRole.Client)
+    role: UserRole = IntEnumField(UserRole, default=UserRole.CLIENT)
 
     _icon = "user"
     _name = {"username"}
+
+    class Meta:
+        table_description = "Users"
+
+
+class UserPasswordTrait(TsModel):
+    password: str | None = CharField(60, null=True)
 
     __cc = CryptContext(schemes=["bcrypt"])
 
@@ -315,12 +321,10 @@ class User(TsModel):
     async def create(cls, using_db=None, **kwargs) -> "User":
         user: "User" | Model = await super().create(using_db, **kwargs)
         if pwd := kwargs.get("password"):
+            # noinspection PyUnresolvedReferences
             await user.set_pwd(pwd)
         return user
 
     async def set_pwd(self, pwd: str = password) -> None:
         self.password = self.__cc.hash(pwd)
         await self.save()
-
-    class Meta:
-        table_description = "Users"

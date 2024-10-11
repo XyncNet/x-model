@@ -11,20 +11,21 @@ class FieldType(IntEnum):
 
 
 class UserStatus(IntEnum):
-    banned = 0
-    wait = 1  # waiting for approve
-    test = 2  # trial
-    active = 3
-
-
-class UserRole(IntEnum):
-    Client = 1
-    Agent = 2
-    Manager = 3
-    Admin = 4
+    BANNED = 0
+    WAIT = 1  # waiting for approve
+    TEST = 2  # trial
+    ACTIVE = 3
+    PREMIUM = 4
 
 
 class Scope(IntEnum):
-    Read = 1
-    Write = 2
-    All = 3  # not only my
+    READ = 4
+    WRITE = 2
+    ALL = 1  # not only my
+
+
+class UserRole(IntEnum):
+    CLIENT = Scope.READ  # 4
+    AUTHOR = Scope.WRITE  # 2
+    MANAGER = Scope.READ + Scope.WRITE  # 6
+    ADMIN = Scope.READ + Scope.WRITE + Scope.ALL  # 7
