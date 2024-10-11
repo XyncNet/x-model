@@ -7,7 +7,8 @@ authors = [
 dependencies = [
     'tortoise-orm[accel,asyncpg]',
     'passlib[bcrypt]',
-    'pydantic'
+    'pydantic',
+    "python-dotenv"
 ]
 keywords = ["tortoise", "model", "crud", "generator", "api", "admin"]
 description = 'Base model for x-api'
