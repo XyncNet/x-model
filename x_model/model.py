@@ -1,5 +1,4 @@
 from datetime import datetime
-from passlib.context import CryptContext
 from pydantic import create_model
 from tortoise import Model as BaseModel
 from tortoise.contrib.postgres.fields import ArrayField
@@ -37,14 +36,14 @@ from tortoise.fields.relational import (
 from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
 
-from tortoise_api_model import FieldType, PointField, PolygonField, RangeField
-from tortoise_api_model.enum import UserStatus, UserRole
-from tortoise_api_model.field import DatetimeSecField, SetField
-from tortoise_api_model.pydantic import PydList
+from x_model import FieldType, PointField, PolygonField, RangeField
+from x_model.enum import UserStatus, UserRole
+from x_model.field import DatetimeSecField, SetField
+from x_model.pydantic import PydList
 
 
 class Model(BaseModel):
-    id: int = IntField(pk=True)
+    id: int = IntField(True)
     _name: set[str] = {"name"}
     _icon: str = ""  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
     _sorts: list[str] = ["-id"]
@@ -307,24 +306,3 @@ class User(TsModel):
 
     class Meta:
         table_description = "Users"
-
-
-class UserPasswordTrait(TsModel):
-    password: str | None = CharField(60, null=True)
-
-    __cc = CryptContext(schemes=["bcrypt"])
-
-    def pwd_vrf(self, pwd: str) -> bool:
-        return self.__cc.verify(pwd, self.password)
-
-    @classmethod
-    async def create(cls, using_db=None, **kwargs) -> "User":
-        user: "User" | Model = await super().create(using_db, **kwargs)
-        if pwd := kwargs.get("password"):
-            # noinspection PyUnresolvedReferences
-            await user.set_pwd(pwd)
-        return user
-
-    async def set_pwd(self, pwd: str = password) -> None:
-        self.password = self.__cc.hash(pwd)
-        await self.save()

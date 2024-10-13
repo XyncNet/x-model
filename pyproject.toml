@@ -1,17 +1,15 @@
 [project]
-name = "tortoise-api-model"
-requires-python = ">=3.11"
+name = "xn-model"
+requires-python = ">=3.12"
 authors = [
     {name = "Mike Artemiev", email = "mixartemev@gmail.com"},
 ]
 dependencies = [
     'tortoise-orm[accel,asyncpg]',
-    'passlib[bcrypt]',
-    'pydantic',
     "python-dotenv"
 ]
 keywords = ["tortoise", "model", "crud", "generator", "api", "admin"]
-description = 'Base model for x-api'
+description = 'Base model for xn-api'
 readme = "README.md"
 license = {text = "MIT"}
 dynamic = ["version"]
@@ -25,7 +23,7 @@ requires = ["setuptools>=64", "setuptools-scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["tortoise_api_model"]
+packages = ["x_model"]
 
 [tool.setuptools_scm]
 version_scheme = "python-simplified-semver" # if "feature" in `branch_name` SEMVER_MINOR++ else SEMVER_PATCH++

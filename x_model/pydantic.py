@@ -1,7 +1,7 @@
 from typing import TypeVar, Generic
 from pydantic import BaseModel, ConfigDict
 
-from tortoise_api_model.enum import UserStatus, UserRole
+from x_model.enum import UserStatus, UserRole
 
 
 RootModelType = TypeVar("RootModelType")
