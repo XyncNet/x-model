@@ -31,8 +31,12 @@ class UserUpdate(BaseModel):
     role: UserRole
 
 
-class UserSchema(UserUpdate):
+class UserAuth(UserUpdate):
     id: int
+    username: str
+    status: UserStatus
+    role: UserRole
+    # ref_id: int | None
 
 
 class Names(BaseModel):
