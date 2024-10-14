@@ -1,170 +1,42 @@
 from datetime import datetime
 from pydantic import create_model
-from tortoise import Model as BaseModel
-from tortoise.contrib.postgres.fields import ArrayField
+from tortoise import Model as TortoiseModel
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
-from tortoise.fields import (
-    Field,
-    CharField,
-    IntField,
-    SmallIntField,
-    BigIntField,
-    DecimalField,
-    FloatField,
-    TextField,
-    BooleanField,
-    DatetimeField,
-    DateField,
-    TimeField,
-    JSONField,
-    ForeignKeyRelation,
-    OneToOneRelation,
-    ManyToManyRelation,
-    ForeignKeyNullableRelation,
-    OneToOneNullableRelation,
-    IntEnumField,
-)
-from tortoise.fields.data import IntEnumFieldInstance, CharEnumFieldInstance
-from tortoise.fields.relational import (
-    BackwardFKRelation,
-    ForeignKeyFieldInstance,
-    ManyToManyFieldInstance,
-    OneToOneFieldInstance,
-    BackwardOneToOneRelation,
-    RelationalField,
-)
+from tortoise import fields
 from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
 
-from x_model import FieldType, PointField, PolygonField, RangeField
-from x_model.enum import UserStatus, UserRole
-from x_model.field import DatetimeSecField, SetField
+from x_model.field import DatetimeSecField
 from x_model.pydantic import PydList
 
 
-class Model(BaseModel):
-    id: int = IntField(True)
-    _name: set[str] = {"name"}
-    _icon: str = ""  # https://unpkg.com/@tabler/icons@2.30.0/icons/icon_name.svg
-    _sorts: list[str] = ["-id"]
-    _ownable_fields: dict[str, str | None] = {"one": None, "list": None, "in": None}
-    _pydIn: type[PydanticModel] = None
-    _pyd: type[PydanticModel] = None
-    _pydListItem: type[PydanticModel] = None
-    _permissions: tuple[bool, bool, bool] = True, True, True
+class BaseModel(TortoiseModel):
+    # todo: resolve ownable + add only own list method
+    # todo: refact: clean old garbage
+    id: int = fields.IntField(True)
 
-    @classmethod
-    def cols(cls) -> list[dict]:
-        meta = cls._meta
-        return [
-            {"data": c, "orderable": c not in meta.fetch_fields or c in meta.fk_fields}
-            for c in meta.fields_map
-            if not c.endswith("_id")
-        ]
+    _name: tuple[str] = {"name"}
+    _sorts: tuple[str] = ["-id"]
 
-    @classmethod
-    def pyd(cls) -> type[PydanticModel]:
-        cls._pyd = cls._pyd or pydantic_model_creator(cls)
-        return cls._pyd
-
-    @classmethod
-    def pydIn(cls) -> type[PydanticModel]:
-        if not cls._pydIn:
-            opts = tuple(k for k, v in cls._meta.fields_map.items() if not v.required)
-            cls._pydIn = pydantic_model_creator(
-                cls,
-                name=cls.__name__ + "In",
-                meta_override=cls.PydanticMetaIn,
-                optional=opts,
-                exclude_readonly=True,
-                exclude=("created_at", "updated_at"),
-            )
-            if m2ms := cls._meta.m2m_fields:  # hack for direct inserting m2m values
-                cls._pydIn = create_model(
-                    cls._pydIn.__name__, __base__=cls._pydIn, **{m2m: (list[int] | None, None) for m2m in m2ms}
-                )
-        return cls._pydIn
-
-    @classmethod
-    def pydListItem(cls) -> type[PydanticModel]:
-        if not cls._pydListItem:
-            cls._pydListItem = pydantic_model_creator(
-                cls, name=cls.__name__ + "ListItem", meta_override=cls.PydanticMetaListItem
-            )
-        return cls._pydListItem
-
-    @classmethod
-    def pydsList(cls) -> type[PydList]:
-        return create_model(
-            cls.__name__ + "List",
-            data=(list[cls.pydListItem()], []),
-            total=(int, 0),
-            filtered=(int | None, None),
-            __base__=PydList[cls.pydListItem()],
-        )
-
-    @classmethod
-    async def one(cls, uid: int, owner: int = None, **kwargs) -> PydanticModel:
-        if owner and (of := cls._ownable_fields.get("one")):
-            kwargs.update({of: owner})
-        q = cls.get(id=uid, **kwargs)
-        return await cls.pyd().from_queryset_single(q)
-
-    @classmethod
-    def pageQuery(
-        cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs
-    ) -> QuerySet:
-        rels, keys = [], ["id"]
-        for nam in cls._name:
-            parts = nam.split("__")
-            if len(parts) > 1:
-                rels.append("__".join(parts[:-1]))
-            keys.append(nam)
-        query = (
-            cls.filter(**kwargs)
-            .order_by(*sorts)
-            .limit(limit)
-            .offset(offset)
-            .prefetch_related(*(cls._meta.fetch_fields & set(kwargs)), *rels)
-        )
-        if q:
-            query = query.filter(**{f"{cls._name}__icontains": q})
-        if owner and (of := cls._ownable_fields.get("list")):
-            query = query.filter(**{of: owner})
-        return query
-
-    @classmethod
-    async def pagePyd(
-        cls, sorts: list[str], limit: int = 1000, offset: int = 0, q: str = None, owner: int = None, **kwargs
-    ) -> PydList:
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
-        pyd = cls.pydListItem()
-        query = cls.pageQuery(sorts, limit, offset, q, owner, **kwargs)
-        await query
-        data = await pyd.from_queryset(query)
-        if limit - (li := len(data)):
-            filtered = total = li + offset
-        else:
-            total = await cls.all().count()
-            filtered_query = cls.filter(**kwargs)
-            if q:
-                filtered_query = filtered_query.filter(**{f"{cls._name}__icontains": q})
-            filtered = await filtered_query.count()
-        pyds = cls.pydsList()
-        return pyds(data=data, total=total, filtered=filtered)
-
-    def repr(self) -> str:
+    def repr(self, sep: str = " ") -> str:
         if self._name in self._meta.db_fields:
-            return " ".join(getattr(self, name_fragment) for name_fragment in self._name)
+            return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
         return self.__repr__()
 
     @classmethod
-    async def getOrCreateByName(cls, name: str, attr_name: str = None, def_dict: dict = None) -> BaseModel:
+    async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> TortoiseModel:
         attr_name = attr_name or list(cls._name)[0]
         if not (obj := await cls.get_or_none(**{attr_name: name})):
             next_id = (await cls.all().order_by("-id").first()).id + 1
             obj = await cls.create(id=next_id, **{attr_name: name}, **(def_dict or {}))
         return obj
+
+    @classmethod
+    def _page_query(cls, sorts: tuple[str], limit: int = 1000, offset: int = 0, q: str = None, **filters) -> QuerySet:
+        query = cls.filter(**filters).order_by(*sorts).limit(limit).offset(offset)
+        if q:
+            query = query.filter(**{f"{cls._name}__icontains": q})
+        return query
 
     @classmethod
     async def upsert(cls, data: dict, oid=None):
@@ -187,7 +59,7 @@ class Model(BaseModel):
         # save relations
         for k, ids in m2ms.items():
             if ids:
-                m2m_rel: ManyToManyRelation = getattr(obj, k)
+                m2m_rel: fields.ManyToManyRelation = getattr(obj, k)
                 items = [await m2m_rel.remote_model[i] for i in ids]
                 await m2m_rel.clear()  # for updating, not just adding
                 await m2m_rel.add(*items)
@@ -203,73 +75,19 @@ class Model(BaseModel):
         await obj.fetch_related(*cls._meta.fetch_fields)
         return obj
 
-    @classmethod
-    def field_input_map(cls) -> dict:
-        def type2input(ft: type[Field]):
-            dry = {
-                "base_field": hasattr(ft, "base_field") and {**type2input(ft.base_field)},
-                "step": hasattr(ft, "step") and ft.step,
-                "labels": hasattr(ft, "labels") and ft.labels,
-            }
-            type2inputs: {Field: dict} = {
-                CharField: {"input": FieldType.input.name},
-                IntField: {"input": FieldType.input.name, "type": "number"},
-                SmallIntField: {"input": FieldType.input.name, "type": "number"},
-                BigIntField: {"input": FieldType.input.name, "type": "number"},
-                DecimalField: {"input": FieldType.input.name, "type": "number", "step": "0.01"},
-                FloatField: {"input": FieldType.input.name, "type": "number", "step": "0.001"},
-                TextField: {"input": FieldType.textarea.name, "rows": "2"},
-                BooleanField: {"input": FieldType.checkbox.name},
-                DatetimeField: {"input": FieldType.input.name, "type": "datetime"},
-                DatetimeSecField: {"input": FieldType.input.name, "type": "datetime"},
-                DateField: {"input": FieldType.input.name, "type": "date"},
-                TimeField: {"input": FieldType.input.name, "type": "time"},
-                JSONField: {"input": FieldType.input.name},
-                IntEnumFieldInstance: {"input": FieldType.select.name},
-                CharEnumFieldInstance: {"input": FieldType.select.name},
-                ForeignKeyFieldInstance: {"input": FieldType.select.name},
-                OneToOneFieldInstance: {"input": FieldType.select.name},
-                ManyToManyFieldInstance: {"input": FieldType.select.name, "multiple": True},
-                ForeignKeyRelation: {"input": FieldType.select.name, "multiple": True},
-                OneToOneRelation: {"input": FieldType.select.name},
-                BackwardOneToOneRelation: {"input": FieldType.select.name},
-                ManyToManyRelation: {"input": FieldType.select.name, "multiple": True},
-                ForeignKeyNullableRelation: {"input": FieldType.select.name, "multiple": True},
-                BackwardFKRelation: {"input": FieldType.select.name, "multiple": True},
-                ArrayField: {"input": FieldType.select.name, "multiple": True},
-                SetField: {"input": FieldType.select.name, "multiple": True},
-                OneToOneNullableRelation: {"input": FieldType.select.name},
-                PointField: {"input": FieldType.collection.name, **dry},
-                PolygonField: {"input": FieldType.list.name, **dry},
-                RangeField: {"input": FieldType.collection.name, **dry},
-            }
-            return type2inputs[ft]
-
-        def field2input(_key: str, field: Field):
-            attrs: dict = {"required": not field.null}
-            if isinstance(field, CharEnumFieldInstance):
-                attrs.update({"options": {en.name: en.value for en in field.enum_type}})
-            elif isinstance(field, IntEnumFieldInstance) or isinstance(field, SetField):
-                attrs.update({"options": {en.value: en.name.replace("_", " ") for en in field.enum_type}})
-            elif isinstance(field, RelationalField):
-                attrs.update({"source_field": field.source_field})  # 'table': attrs[key]['multiple'],
-            elif field.generated or ("auto_now" in field.__dict__ and (field.auto_now or field.auto_now_add)):  # noqa
-                attrs.update({"auto": True})
-            return {**type2input(type(field)), **attrs}
-
-        return {key: field2input(key, field) for key, field in cls._meta.fields_map.items() if not key.endswith("_id")}
-
     class Meta:
         abstract = True
 
-    class PydanticMeta:
-        #: If not empty, only fields this property contains will be in the pydantic model
-        # include: tuple[str, ...] = ()
-        # #: Fields listed in this property will be excluded from pydantic model
-        # exclude: tuple[str, ...] = ()
-        # #: Computed fields can be listed here to use in pydantic model
-        # computed: tuple[str, ...] = ()
 
+class Model(BaseModel):
+    _pyd: type[PydanticModel] = None
+    _pydIn: type[PydanticModel] = None
+    _pydListItem: type[PydanticModel] = None
+
+    class PydanticMeta:
+        # include: tuple[str, ...] = ()
+        # exclude: tuple[str, ...] = ()
+        # computed: tuple[str, ...] = ()
         exclude_raw_fields = False  # default: True
         max_recursion: int = 1  # default: 3
 
@@ -284,25 +102,71 @@ class Model(BaseModel):
         exclude_raw_fields = False  # default: True
         sort_alphabetically: bool = True  # default: False
 
+    @classmethod
+    def pyd(cls) -> type[PydanticModel]:
+        cls._pyd = cls._pyd or pydantic_model_creator(cls)
+        return cls._pyd
 
-class TsModel(Model):
+    @classmethod
+    def pyd_in(cls) -> type[PydanticModel]:
+        if not cls._pydIn:
+            opts = tuple(k for k, v in cls._meta.fields_map.items() if not v.required)
+            cls._pydIn = pydantic_model_creator(
+                cls,
+                name=cls.__name__ + "In",
+                meta_override=cls.PydanticMetaIn,
+                optional=opts,
+                exclude_readonly=True,
+                exclude=("created_at", "updated_at"),
+            )
+            if m2ms := cls._meta.m2m_fields:  # hack for direct inserting m2m values
+                cls._pydIn = create_model(
+                    cls._pydIn.__name__, __base__=cls._pydIn, **{m2m: (list[int] | None, None) for m2m in m2ms}
+                )
+        return cls._pydIn
+
+    @classmethod
+    def pyd_list_item(cls) -> type[PydanticModel]:
+        if not cls._pydListItem:
+            cls._pydListItem = pydantic_model_creator(
+                cls, name=cls.__name__ + "ListItem", meta_override=cls.PydanticMetaListItem
+            )
+        return cls._pydListItem
+
+    @classmethod
+    def pyds_list(cls) -> type[PydList]:
+        return create_model(
+            cls.__name__ + "List",
+            data=(list[cls.pyd_list_item()], []),
+            total=(int, 0),
+            filtered=(int | None, None),
+            __base__=PydList[cls.pyd_list_item()],
+        )
+
+    # # # CRUD Methods # # #
+    @classmethod
+    async def one_pyd(cls, uid: int, **filters) -> PydanticModel:
+        q = cls.get(id=uid, **filters)
+        return await cls.pyd().from_queryset_single(q)
+
+    @classmethod
+    async def page_pyd(cls, sorts: tuple[str], limit: int = 1000, offset: int = 0, q: str = None, **filters) -> PydList:
+        filters = {k: v for k, v in filters.items() if v is not None}
+        pyd_item = cls.pyd_list_item()
+        query = cls._page_query(sorts, limit, offset, q, **filters)
+        data = await pyd_item.from_queryset(query)
+        if limit - (li := len(data)):
+            filtered = total = li + offset
+        else:
+            total = await cls.all().count()
+            filtered_query = cls.filter(**filters)
+            if q:
+                filtered_query = filtered_query.filter(**{f"{cls._name}__icontains": q})
+            filtered = await filtered_query.count()
+        pyds = cls.pyds_list()
+        return pyds(data=data, total=total, filtered=filtered)
+
+
+class TsTrait:
     created_at: datetime | None = DatetimeSecField(auto_now_add=True)
     updated_at: datetime | None = DatetimeSecField(auto_now=True)
-
-    class Meta:
-        abstract = True
-
-
-class User(TsModel):
-    status: UserStatus = IntEnumField(UserStatus, default=UserStatus.WAIT)
-    username: str | None = CharField(95, unique=True, null=True)
-    email: str | None = CharField(100, unique=True, null=True)
-    password: str | None = CharField(60, null=True)
-    phone: int | None = BigIntField(null=True)
-    role: UserRole = IntEnumField(UserRole, default=UserRole.CLIENT)
-
-    _icon = "user"
-    _name = {"username"}
-
-    class Meta:
-        table_description = "Users"
