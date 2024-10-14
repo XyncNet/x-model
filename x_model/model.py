@@ -15,13 +15,11 @@ class BaseModel(TortoiseModel):
     # todo: refact: clean old garbage
     id: int = fields.IntField(True)
 
-    _name: tuple[str] = {"name"}
-    _sorts: tuple[str] = ["-id"]
+    _name: tuple[str] = ("name",)
+    _sorts: tuple[str] = ("-id",)
 
     def repr(self, sep: str = " ") -> str:
-        if self._name in self._meta.db_fields:
-            return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
-        return self.__repr__()
+        return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
 
     @classmethod
     async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> TortoiseModel:
