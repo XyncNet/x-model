@@ -42,7 +42,7 @@ class BaseModel(TortoiseModel):
     async def upsert(cls, data: dict, oid=None):
         meta: MetaInfo = cls._meta
 
-        # pop fields for relations from general data dict
+        # pop fields for relations from general data dict # todo: add backwards fields for save
         m2ms = {k: data.pop(k) for k in meta.m2m_fields if k in data}
         # bfks = {k: data.pop(k) for k in meta.backward_fk_fields if k in data}
         # bo2os = {k: data.pop(k) for k in meta.backward_o2o_fields if k in data}
@@ -54,7 +54,7 @@ class BaseModel(TortoiseModel):
         #     unq = {key: data.pop(key) for key, ft in meta.fields_map.items() if ft.unique and key in data.keys()}
         # # unq = meta.unique_together
         # obj, is_created = await cls.update_or_create(data, **unq)
-        obj = (await cls.update_or_create(data, **{meta.pk_attr: oid}))[0] if oid else await cls.create(**data)
+        obj = (await cls.update_or_create(data, id=oid))[0] if oid else await cls.create(**data)
 
         # save relations
         for k, ids in m2ms.items():
