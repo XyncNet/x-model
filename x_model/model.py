@@ -3,8 +3,10 @@ from pydantic import create_model
 from tortoise import Model as TortoiseModel
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise import fields
+from tortoise.exceptions import FieldError
 from tortoise.models import MetaInfo
 from tortoise.queryset import QuerySet
+from x_model import HTTPException, FailReason
 
 from x_model.field import DatetimeSecField
 from x_model.pydantic import PydList
@@ -33,7 +35,7 @@ class BaseModel(TortoiseModel):
     def _page_query(cls, sorts: tuple[str], limit: int = 1000, offset: int = 0, q: str = None, **filters) -> QuerySet:
         query = cls.filter(**filters).order_by(*sorts).limit(limit).offset(offset)
         if q:
-            query = query.filter(**{f"{cls._name}__icontains": q})
+            query = query.filter(**{f"{cls._name[0]}__icontains": q})
         return query
 
     @classmethod
@@ -152,7 +154,10 @@ class Model(BaseModel):
         filters = {k: v for k, v in filters.items() if v is not None}
         pyd_item = cls.pyd_list_item()
         query = cls._page_query(sorts, limit, offset, q, **filters)
-        data = await pyd_item.from_queryset(query)
+        try:
+            data = await pyd_item.from_queryset(query)
+        except FieldError as e:
+            raise HTTPException(FailReason.body, e)
         if limit - (li := len(data)):
             filtered = total = li + offset
         else:

@@ -1,7 +1,12 @@
+import logging
+from enum import IntEnum
 from types import ModuleType
+
+from starlette import status
 from tortoise import Tortoise, connections, ConfigurationError
 from tortoise.backends.asyncpg import AsyncpgDBClient
 from tortoise.exceptions import DBConnectionError
+from fastapi import HTTPException as BaseHTTPException
 
 
 async def init_db(dsn: str, models: ModuleType, create_tables: bool = False) -> AsyncpgDBClient | str:
@@ -13,3 +18,24 @@ async def init_db(dsn: str, models: ModuleType, create_tables: bool = False) -> 
     except (ConfigurationError, DBConnectionError) as ce:
         return ce.args[0]
     return cn
+
+
+class FailReason(IntEnum):
+    path = 8
+    query = 9
+    body = 10
+    method = 11
+    protocol = 12
+
+
+class HTTPException(BaseHTTPException):
+    def __init__(
+        self,
+        reason: IntEnum,
+        parent: Exception | str = None,
+        status_: status = status.HTTP_400_BAD_REQUEST,
+        hdrs: dict = None,
+    ) -> None:
+        detail = f"{reason.name}{f': {parent}' if parent else ''}"
+        logging.error(detail)
+        super().__init__(status_, detail, hdrs)
