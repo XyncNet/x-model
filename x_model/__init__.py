@@ -21,11 +21,12 @@ async def init_db(dsn: str, models: ModuleType, create_tables: bool = False) -> 
 
 
 class FailReason(IntEnum):
-    path = 8
+    body = 8
     query = 9
-    body = 10
-    method = 11
+    path = 10
+    host = 11
     protocol = 12
+    method = 13
 
 
 class HTTPException(BaseHTTPException):

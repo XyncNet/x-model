@@ -5,8 +5,7 @@ authors = [
     {name = "Mike Artemiev", email = "mixartemev@gmail.com"},
 ]
 dependencies = [
-    'tortoise-orm[accel,asyncpg]',
-    "python-dotenv"
+    'tortoise-orm[accel,asyncpg]'
 ]
 keywords = ["tortoise", "model", "crud", "generator", "api", "admin"]
 description = 'Base model for xn-api'
@@ -32,9 +31,9 @@ local_scheme = "no-local-version"
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "python-dotenv",
     "build",
-    "twine",
-    "setuptools_scm",
+    "twine"
 ]
 
 [tool.ruff]

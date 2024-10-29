@@ -3,7 +3,7 @@ from os import getenv as env
 from dotenv import load_dotenv
 from tortoise.backends.asyncpg import AsyncpgDBClient
 
-from x_model import init_db, model
+from x_model import init_db, models
 
 load_dotenv()
 
@@ -11,4 +11,4 @@ PG_DSN = f"postgres://{env('POSTGRES_USER')}:{env('POSTGRES_PASSWORD')}@{env('PO
 
 
 def test_init_db():
-    assert isinstance(run(init_db(PG_DSN, model)), AsyncpgDBClient), "DB corrupt"
+    assert isinstance(run(init_db(PG_DSN, models)), AsyncpgDBClient), "DB corrupt"
