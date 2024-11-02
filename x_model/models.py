@@ -104,7 +104,7 @@ class Model(BaseModel):
 
     @classmethod
     def pyd(cls) -> type[PydanticModel]:
-        cls._pyd = cls._pyd or pydantic_model_creator(cls)
+        cls._pyd = cls._pyd or pydantic_model_creator(cls, name=cls.__name__)
         return cls._pyd
 
     @classmethod
