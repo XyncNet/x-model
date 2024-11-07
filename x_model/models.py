@@ -5,6 +5,8 @@ from tortoise import Model as BaseModel
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.fields import DatetimeField, IntField
 
+from x_model import HTTPException, FailReason
+
 
 class DatetimeSecField(DatetimeField):
     class _db_postgres:
@@ -39,9 +41,10 @@ class Model(BaseModel):
 
     # # # CRUD Methods # # #
     @classmethod
-    async def one_pyd(cls, uid: int, **filters) -> PydanticModel:
-        q = cls.get(id=uid, **filters)
-        return await cls.pyd().from_queryset_single(q)
+    async def get_one(cls, id_: int, **filters) -> PydanticModel:
+        if obj := await cls.get_or_none(id=id_, **filters):
+            return await cls.pyd().from_tortoise_orm(obj)
+        raise HTTPException(reason=FailReason.path, status_=404, parent=f"{cls.__name__}#{id_} not found")
 
     @classmethod
     async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> "Model":
