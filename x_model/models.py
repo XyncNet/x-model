@@ -21,6 +21,7 @@ class TsTrait:
 class Model(BaseModel):
     id: int = IntField(True)
 
+    _pyd: type[PydanticModel] = None
     _name: tuple[str] = ("name",)
     _sorts: tuple[str] = ("-id",)
 
@@ -29,7 +30,9 @@ class Model(BaseModel):
 
     @classmethod
     def pyd(cls):
-        return pydantic_model_creator(cls, name=cls.__name__)
+        if not cls._pyd:
+            cls._pyd = pydantic_model_creator(cls, name=cls.__name__)
+        return cls._pyd
 
     # # # CRUD Methods # # #
     @classmethod
