@@ -4,7 +4,7 @@ requires-python = ">=3.11"
 authors = [
     {name = "Mike Artemiev", email = "mixartemev@gmail.com"},
 ]
-dependencies = ['tortoise-orm[accel,asyncpg]', 'fastapi']
+dependencies = ['tortoise-orm[asyncpg]']
 keywords = ["tortoise", "model", "crud", "generator", "api", "admin"]
 description = 'Base model for xn-api'
 readme = "README.md"

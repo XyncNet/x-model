@@ -1,14 +1,4 @@
-# from typing import TypeVar, Generic
-from pydantic import BaseModel  # , ConfigDict
-
-
-# RootModelType = TypeVar("RootModelType")
-#
-#
-# class PydList(BaseModel, Generic[RootModelType]):
-#     model_config = ConfigDict(arbitrary_types_allowed=True)
-#     data: list[RootModelType]
-#     total: int
+from pydantic import BaseModel
 
 
 class Names(BaseModel):

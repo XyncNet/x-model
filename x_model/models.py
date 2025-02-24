@@ -28,16 +28,8 @@ class Model(BaseModel):
         return " ".join(getattr(self, name_fragment) for name_fragment in self._name)
 
     @classmethod
-    def _pyd(cls, suffix: str, **kwargs) -> type[PydanticModel]:
-        return pydantic_model_creator(cls, name=cls.__name__ + suffix, **kwargs)
-
-    @classmethod
     def pyd(cls):
-        return cls._pyd("Root")
-
-    @classmethod
-    def pyd_in(cls):
-        return cls._pyd("In", exclude_readonly=True)
+        return pydantic_model_creator(cls, name=cls.__name__)
 
     # # # CRUD Methods # # #
     @classmethod
@@ -60,7 +52,7 @@ class Model(BaseModel):
         # exclude: tuple[str, ...] = ("Meta",)
         # computed: tuple[str, ...] = ()
         # backward_relations: bool = True
-        max_recursion: int = 1  # default: 3
+        max_recursion: int = 0  # default: 3
         # allow_cycles: bool = False
         # exclude_raw_fields: bool = True
         # sort_alphabetically: bool = False
