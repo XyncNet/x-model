@@ -3,14 +3,9 @@ from datetime import datetime
 from pydantic import ConfigDict
 from tortoise import Model as BaseModel
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
-from tortoise.fields import DatetimeField, IntField
+from tortoise.fields import IntField
 
-from x_model import HTTPException, FailReason
-
-
-class DatetimeSecField(DatetimeField):
-    class _db_postgres:
-        SQL_TYPE = "TIMESTAMPTZ(0)"
+from x_model.field import DatetimeSecField
 
 
 class TsTrait:
@@ -21,7 +16,8 @@ class TsTrait:
 class Model(BaseModel):
     id: int = IntField(True)
 
-    _pyd: type[PydanticModel] = None
+    _pyd: type[PydanticModel] = None  # overridable
+    _pydIn: type[PydanticModel] = None  # overridable
     _name: tuple[str] = ("name",)
     _sorts: tuple[str] = ("-id",)
 
@@ -34,12 +30,20 @@ class Model(BaseModel):
             cls._pyd = pydantic_model_creator(cls, name=cls.__name__)
         return cls._pyd
 
+    @classmethod
+    def pyd_in(cls):
+        if not cls._pydIn:
+            cls._pydIn = pydantic_model_creator(
+                cls, name=cls.__name__ + "In", exclude_readonly=True, meta_override=cls.PydanticMetaIn
+            )
+        return cls._pydIn
+
     # # # CRUD Methods # # #
     @classmethod
     async def get_one(cls, id_: int, **filters) -> PydanticModel:
         if obj := await cls.get_or_none(id=id_, **filters):
             return await cls.pyd().from_tortoise_orm(obj)
-        raise HTTPException(reason=FailReason.path, status_=404, parent=f"{cls.__name__}#{id_} not found")
+        raise LookupError(f"{cls.__name__}#{id_} not found")
 
     @classmethod
     async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> "Model":
@@ -55,11 +59,16 @@ class Model(BaseModel):
         # exclude: tuple[str, ...] = ("Meta",)
         # computed: tuple[str, ...] = ()
         # backward_relations: bool = True
-        max_recursion: int = 0  # default: 3
+        max_recursion: int = 1  # default: 3
         # allow_cycles: bool = False
         # exclude_raw_fields: bool = True
         # sort_alphabetically: bool = False
         # model_config: ConfigDict | None = None
+
+    class PydanticMetaIn:
+        backward_relations: bool = False
+        max_recursion: int = 0
+        exclude_raw_fields: bool = False
 
     class Meta:
         abstract = True

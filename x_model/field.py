@@ -1,7 +1,7 @@
 from enum import IntEnum
 from typing import Any
 
-from asyncpg import Point, Polygon, Range, Box
+from asyncpg import Range  # Box, Point, Polygon,
 from tortoise import Model
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField
@@ -51,23 +51,23 @@ class RangeField(CollectionField[Range]):
         return value
 
 
-class PointField(CollectionField[Point]):
-    SQL_TYPE = "POINT"
-    field_type = Point
-    base_field = FloatField
-    labels = ("lat", "lon")
-
-
-class PolygonField(ListField[Polygon]):
-    SQL_TYPE = "POLYGON"
-    field_type = Polygon
-    base_field = PointField
-
-
-class BoxField(ListField[Box]):
-    SQL_TYPE = "BOX"
-    field_type = Box
-    base_field = PointField
+# class PointField(CollectionField[Point]):
+#     SQL_TYPE = "POINT"
+#     field_type = Point
+#     base_field = FloatField
+#     labels = ("lat", "lon")
+#
+#
+# class PolygonField(ListField[Polygon]):
+#     SQL_TYPE = "POLYGON"
+#     field_type = Polygon
+#     base_field = PointField
+#
+#
+# class BoxField(ListField[Box]):
+#     SQL_TYPE = "BOX"
+#     field_type = Box
+#     base_field = PointField
 
 
 class DatetimeSecField(DatetimeField):
