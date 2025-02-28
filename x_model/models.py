@@ -1,7 +1,6 @@
 from datetime import datetime
-
-from pydantic import ConfigDict
-from tortoise import Model as BaseModel
+from pydantic import ConfigDict, BaseModel
+from tortoise import Model as TrtModel
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.fields import IntField
 
@@ -13,11 +12,19 @@ class TsTrait:
     updated_at: datetime | None = DatetimeSecField(auto_now=True)
 
 
-class Model(BaseModel):
+class PydIn(BaseModel):
+    _unq: list[str] = ["id"]
+
+    def df_unq(self) -> dict:
+        d = self.model_dump(exclude_none=True)
+        return {**{k: d.pop(k) for k in self._unq}, "defaults": d}
+
+
+class Model(TrtModel):
     id: int = IntField(True)
 
     _pyd: type[PydanticModel] = None  # overridable
-    _pydIn: type[PydanticModel] = None  # overridable
+    _pydIn: type[PydIn | PydanticModel] = None  # overridable
     _name: tuple[str] = ("name",)
     _sorts: tuple[str] = ("-id",)
 
@@ -38,12 +45,8 @@ class Model(BaseModel):
             )
         return cls._pydIn
 
-    # # # CRUD Methods # # #
-    @classmethod
-    async def get_one(cls, id_: int, **filters) -> PydanticModel:
-        if obj := await cls.get_or_none(id=id_, **filters):
-            return await cls.pyd().from_tortoise_orm(obj)
-        raise LookupError(f"{cls.__name__}#{id_} not found")
+    async def one(self) -> PydanticModel:
+        return await self.pyd().from_tortoise_orm(self)
 
     @classmethod
     async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> "Model":
