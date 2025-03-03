@@ -45,6 +45,13 @@ class Model(TrtModel):
             )
         return cls._pydIn
 
+    # # # CRUD Methods # # #
+    @classmethod
+    async def get_one(cls, id_: int) -> PydanticModel:
+        if obj := await cls.get_or_none(id=id_):
+            return await cls.pyd().from_tortoise_orm(obj)
+        raise LookupError(f"{cls.__name__}#{id_} not found")
+
     async def one(self) -> PydanticModel:
         return await self.pyd().from_tortoise_orm(self)
 
