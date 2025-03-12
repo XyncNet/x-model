@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Self
 
 from pydantic import ConfigDict, BaseModel
 from tortoise import Model as TortModel
@@ -16,8 +17,8 @@ class TsTrait:
 class Model(TortModel):
     id: int = IntField(True)
 
-    _out: type[BaseModel] = None  # overridable
-    _in: type[BaseModel] = None  # overridable
+    _out_type: type[BaseModel] = None  # overridable
+    _in_type: type[BaseModel] = None  # overridable
     _name: tuple[str] = ("name",)
     _sorts: tuple[str] = ("-id",)
 
@@ -25,31 +26,31 @@ class Model(TortModel):
         return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
 
     @classmethod
-    def pyd(cls):
-        if not cls._out:
+    def out_type(cls):
+        if not cls._out_type:
             cls._out = pydantic_model_creator(cls, name=cls.__name__ + "Out")
-        return cls._out
+        return cls._out_type
 
     @classmethod
-    def pyd_in(cls):
-        if not cls._in:
-            cls._in = pydantic_model_creator(
+    def in_type(cls):
+        if not cls._in_type:
+            cls._inn = pydantic_model_creator(
                 cls, name=cls.__name__ + "In", exclude_readonly=True, meta_override=cls.PydanticMetaIn
             )
-        return cls._in
+        return cls._in_type
 
     # # # CRUD Methods # # #
     @classmethod
     async def get_one(cls, id_: int) -> PydanticModel:
         if obj := await cls.get_or_none(id=id_):
-            return await cls.pyd().from_tortoise_orm(obj)
+            return await cls.out_type().from_tortoise_orm(obj)
         raise LookupError(f"{cls.__name__}#{id_} not found")
 
     async def one(self) -> PydanticModel:
-        return await self.pyd().from_tortoise_orm(self)
+        return await self.out_type().from_tortoise_orm(self)
 
     @classmethod
-    async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> "Model":
+    async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> Self:
         attr_name = attr_name or list(cls._name)[0]
         if not (obj := await cls.get_or_none(**{attr_name: name})):
             next_id = (await cls.all().order_by("-id").first()).id + 1
