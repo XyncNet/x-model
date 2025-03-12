@@ -1,6 +1,7 @@
 from datetime import datetime
+
 from pydantic import ConfigDict, BaseModel
-from tortoise import Model as TrtModel
+from tortoise import Model as TortModel
 from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.fields import IntField
 
@@ -12,38 +13,30 @@ class TsTrait:
     updated_at: datetime | None = DatetimeSecField(auto_now=True)
 
 
-class PydIn(BaseModel):
-    _unq: list[str] = ["id"]
-
-    def df_unq(self) -> dict:
-        d = self.model_dump(exclude_none=True)
-        return {**{k: d.pop(k) for k in self._unq}, "defaults": d}
-
-
-class Model(TrtModel):
+class Model(TortModel):
     id: int = IntField(True)
 
-    _pyd: type[PydanticModel] = None  # overridable
-    _pydIn: type[PydIn | PydanticModel] = None  # overridable
+    _out: type[BaseModel] = None  # overridable
+    _in: type[BaseModel] = None  # overridable
     _name: tuple[str] = ("name",)
     _sorts: tuple[str] = ("-id",)
 
-    def repr(self) -> str:
-        return " ".join(getattr(self, name_fragment) for name_fragment in self._name)
+    def __repr__(self, sep: str = " ") -> str:
+        return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
 
     @classmethod
     def pyd(cls):
-        if not cls._pyd:
-            cls._pyd = pydantic_model_creator(cls, name=cls.__name__)
-        return cls._pyd
+        if not cls._out:
+            cls._out = pydantic_model_creator(cls, name=cls.__name__ + "Out")
+        return cls._out
 
     @classmethod
     def pyd_in(cls):
-        if not cls._pydIn:
-            cls._pydIn = pydantic_model_creator(
+        if not cls._in:
+            cls._in = pydantic_model_creator(
                 cls, name=cls.__name__ + "In", exclude_readonly=True, meta_override=cls.PydanticMetaIn
             )
-        return cls._pydIn
+        return cls._in
 
     # # # CRUD Methods # # #
     @classmethod
