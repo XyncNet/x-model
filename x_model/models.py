@@ -28,13 +28,13 @@ class Model(TortModel):
     @classmethod
     def out_type(cls):
         if not cls._out_type:
-            cls._out = pydantic_model_creator(cls, name=cls.__name__ + "Out")
+            cls._out_type = pydantic_model_creator(cls, name=cls.__name__ + "Out")
         return cls._out_type
 
     @classmethod
     def in_type(cls):
         if not cls._in_type:
-            cls._inn = pydantic_model_creator(
+            cls._in_type = pydantic_model_creator(
                 cls, name=cls.__name__ + "In", exclude_readonly=True, meta_override=cls.PydanticMetaIn
             )
         return cls._in_type
