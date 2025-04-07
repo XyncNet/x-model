@@ -1,12 +1,13 @@
+from dataclasses import make_dataclass, field, fields
 from datetime import datetime
 from typing import Self
 
-from pydantic import ConfigDict, BaseModel
+from pydantic import ConfigDict
 from tortoise import Model as TortModel
-from tortoise.contrib.pydantic import pydantic_model_creator, PydanticModel
 from tortoise.fields import IntField
 
 from x_model.field import DatetimeSecField
+from x_model.types import BaseUpd
 
 
 class TsTrait:
@@ -17,37 +18,53 @@ class TsTrait:
 class Model(TortModel):
     id: int = IntField(True)
 
-    _out_type: type[BaseModel] = None  # overridable
-    _in_type: type[BaseModel] = None  # overridable
+    _in_type: type[BaseUpd] = None  # overridable
     _name: tuple[str] = ("name",)
     _sorts: tuple[str] = ("-id",)
 
     def __repr__(self, sep: str = " ") -> str:
         return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
 
-    @classmethod
-    def out_type(cls):
-        if not cls._out_type:
-            cls._out_type = pydantic_model_creator(cls, name=cls.__name__ + "Out")
-        return cls._out_type
+    # @classmethod
+    # def out_type(cls) -> type[BaseModel]:
+    #     if not cls._out_type:
+    #         cls._out_type = pydantic_model_creator(cls, name=cls.__name__ + "Out")
+    #     return cls._out_type
 
     @classmethod
-    def in_type(cls):
-        if not cls._in_type:
-            cls._in_type = pydantic_model_creator(
-                cls, name=cls.__name__ + "In", exclude_readonly=True, meta_override=cls.PydanticMetaIn
-            )
-        return cls._in_type
+    def in_type(cls, with_pk: bool = False) -> type[BaseUpd]:
+        if not getattr(cls, cn := "Upd" if with_pk else "New", None):
+            fields: list[tuple[str, type] | tuple[str, type, field]] = []
+            for fn in cls._meta.db_fields:
+                if (f := cls._meta.fields_map[fn]).pk and not with_pk:
+                    continue
+                if getattr(f, "auto_now", None) or getattr(f, "auto_now_add", None):
+                    continue
+                fld = fn, getattr(f, "enum_type", f.field_type)
+                if f.default or f.null or (f.allows_generated and not f.pk) or not f.required:
+                    fld += (field(default_factory=dict) if f.default == {} else field(default=f.default),)
+                fields.append(fld)
+            # for fn in cls._meta.fk_fields:
+            #     f = cls._meta.fields_map[fn]
+            #     fld = fn+"_id", int
+            #     if f.default or f.allows_generated or f.null or not f.required:
+            #         fld += (field(default=f.default),)
+            #     fields.append(fld)
+
+            dcl = make_dataclass(cls.__name__ + cn, fields, bases=(BaseUpd,), kw_only=True)
+            dcl._unq = (cls._meta.unique_together or ((),))[0]
+            if with_pk:
+                dcl._unq += ("id",)
+            setattr(cls, cn, dcl)
+
+        return getattr(cls, cn)
 
     # # # CRUD Methods # # #
     @classmethod
-    async def get_one(cls, id_: int) -> PydanticModel:
-        if obj := await cls.get_or_none(id=id_):
-            return await cls.out_type().from_tortoise_orm(obj)
-        raise LookupError(f"{cls.__name__}#{id_} not found")
-
-    async def one(self) -> PydanticModel:
-        return await self.out_type().from_tortoise_orm(self)
+    def validate(cls, dct: dict) -> BaseUpd:
+        dcl = cls.in_type("id" in dct)
+        field_names = [n.name for n in fields(dcl)]
+        return dcl(**{k: v for k, v in dct.items() if k in field_names})
 
     @classmethod
     async def get_or_create_by_name(cls, name: str, attr_name: str = None, def_dict: dict = None) -> Self:
@@ -62,17 +79,12 @@ class Model(TortModel):
         # include: tuple[str, ...] = ()
         # exclude: tuple[str, ...] = ("Meta",)
         # computed: tuple[str, ...] = ()
-        # backward_relations: bool = True
+        backward_relations: bool = False  # True
         max_recursion: int = 1  # default: 3
         # allow_cycles: bool = False
-        # exclude_raw_fields: bool = True
+        # exclude_raw_fields: bool = False  # True
         # sort_alphabetically: bool = False
         # model_config: ConfigDict | None = None
-
-    class PydanticMetaIn:
-        backward_relations: bool = False
-        max_recursion: int = 0
-        exclude_raw_fields: bool = False
 
     class Meta:
         abstract = True
