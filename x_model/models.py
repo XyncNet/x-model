@@ -52,17 +52,17 @@ class Model(TortModel):
             #     fields.append(fld)
 
             dcl = make_dataclass(cls.__name__ + cn, fields, bases=(BaseUpd,), kw_only=True)
-            dcl._unq = (cls._meta.unique_together or ((),))[0]
+            dcl._unq = set((cls._meta.unique_together or ((),))[0])
             if with_pk:
-                dcl._unq += ("id",)
+                dcl._unq |= {"id"}
             setattr(cls, cn, dcl)
 
         return getattr(cls, cn)
 
     # # # CRUD Methods # # #
     @classmethod
-    def validate(cls, dct: dict) -> BaseUpd:
-        dcl = cls.in_type("id" in dct)
+    def validate(cls, dct: dict, with_pk: bool = None) -> BaseUpd:
+        dcl = cls.in_type("id" in dct if with_pk is None else with_pk)
         field_names = [n.name for n in fields(dcl)]
         return dcl(**{k: v for k, v in dct.items() if k in field_names})
 
