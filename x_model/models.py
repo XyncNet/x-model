@@ -52,7 +52,8 @@ class Model(TortModel):
             #     fields.append(fld)
 
             dcl = make_dataclass(cls.__name__ + cn, fields, bases=(BaseUpd,), kw_only=True)
-            dcl._unq = set((cls._meta.unique_together or ((),))[0])
+            dcl._unq = {o + "_id" for o in cls._meta.o2o_fields}
+            dcl._unq |= set((cls._meta.unique_together or ((),))[0])
             if with_pk:
                 dcl._unq |= {"id"}
             setattr(cls, cn, dcl)
