@@ -5,6 +5,7 @@ from typing import Self
 from pydantic import ConfigDict
 from tortoise import Model as TortModel
 from tortoise.fields import IntField
+from tortoise.signals import Signals
 
 from x_model.field import DatetimeSecField
 from x_model.types import BaseUpd
@@ -50,9 +51,9 @@ class Model(TortModel):
             #     if f.default or f.allows_generated or f.null or not f.required:
             #         fld += (field(default=f.default),)
             #     fields.append(fld)
-
+            pre_saves = [f.__name__ for f in cls._listeners[Signals.pre_save].get(cls, [])]
             dcl = make_dataclass(cls.__name__ + cn, fields, bases=(BaseUpd,), kw_only=True)
-            dcl._unq = {o + "_id" for o in cls._meta.o2o_fields}
+            dcl._unq = {o + "_id" for o in cls._meta.o2o_fields if o not in pre_saves}
             dcl._unq |= set((cls._meta.unique_together or ((),))[0])
             if with_pk:
                 dcl._unq |= {"id"}
