@@ -4,8 +4,67 @@ from typing import Any
 from asyncpg import Range, Point  # Box, Polygon,
 from tortoise import Model
 from tortoise.contrib.postgres.fields import ArrayField
-from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField
+from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField, BinaryField, BigIntField
 from tortoise.fields.base import VALUE
+
+
+class UniqBinaryField(BinaryField):
+    indexable = True
+
+
+class UInt1Field(IntField):
+    SQL_TYPE = "UINT2"
+
+    @property
+    def constraints(self) -> dict:
+        return {
+            "ge": 0,
+            "le": 255,
+        }
+
+
+class UInt2Field(IntField):
+    SQL_TYPE = "UINT2"
+
+    @property
+    def constraints(self) -> dict:
+        return {
+            "ge": 0,
+            "le": 65535,
+        }
+
+
+class UIntField(IntField):
+    SQL_TYPE = "UINT4"
+
+    @property
+    def constraints(self) -> dict:
+        return {
+            "ge": 0,
+            "le": 4_294_967_295,
+        }
+
+
+class UInt8Field(BigIntField):
+    SQL_TYPE = "UINT8"
+
+    @property
+    def constraints(self) -> dict:
+        return {
+            "ge": 0,
+            "le": 18_446_744_073_709_551_615,
+        }
+
+
+class UInt16Field(BigIntField):
+    SQL_TYPE = "UINT16"
+
+    @property
+    def constraints(self) -> dict:
+        return {
+            "ge": 0,
+            "le": 340282366920938463463374607431768211455,
+        }
 
 
 class ListField(Field[VALUE]):
