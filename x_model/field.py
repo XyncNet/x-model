@@ -12,8 +12,8 @@ class UniqBinaryField(BinaryField):
     indexable = True
 
 
-class UInt1Field(IntField):
-    SQL_TYPE = "UINT2"
+class UInt1Field(SmallIntField):
+    SQL_TYPE = "SMALLINT"  # UINT2
 
     @property
     def constraints(self) -> dict:
@@ -24,7 +24,7 @@ class UInt1Field(IntField):
 
 
 class UInt2Field(IntField):
-    SQL_TYPE = "UINT2"
+    SQL_TYPE = "INT"  # UINT2
 
     @property
     def constraints(self) -> dict:
@@ -34,8 +34,8 @@ class UInt2Field(IntField):
         }
 
 
-class UIntField(IntField):
-    SQL_TYPE = "UINT4"
+class UIntField(BigIntField):
+    SQL_TYPE = "BIGINT"  # UINT4
 
     @property
     def constraints(self) -> dict:
@@ -46,7 +46,7 @@ class UIntField(IntField):
 
 
 class UInt8Field(BigIntField):
-    SQL_TYPE = "UINT8"
+    SQL_TYPE = "BIGINT"  # UINT8
 
     @property
     def constraints(self) -> dict:
@@ -57,7 +57,7 @@ class UInt8Field(BigIntField):
 
 
 class UInt16Field(BigIntField):
-    SQL_TYPE = "UINT16"
+    SQL_TYPE = "BIGINT"  # UINT16
 
     @property
     def constraints(self) -> dict:
