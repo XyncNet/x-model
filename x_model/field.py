@@ -4,7 +4,7 @@ from typing import Any
 from asyncpg import Range, Point  # Box, Polygon,
 from tortoise import Model
 from tortoise.contrib.postgres.fields import ArrayField
-from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField, BinaryField, BigIntField
+from tortoise.fields import Field, SmallIntField, IntField, FloatField, DatetimeField, BinaryField
 from tortoise.fields.base import VALUE
 
 
@@ -12,8 +12,20 @@ class UniqBinaryField(BinaryField):
     indexable = True
 
 
-class UInt1Field(SmallIntField):
-    SQL_TYPE = "SMALLINT"  # UINT2
+class UIntField(IntField):
+    def to_db_value(self, value: Any, instance: type[Model] | Model) -> Any:
+        self.validate(value)
+        return value if value is None or isinstance(value, str) else str(value)
+
+    def to_python_value(self, value: Any) -> Any:
+        return value if value is None or isinstance(value, int) else int(value)
+
+
+class UInt1Field(UIntField):
+    SQL_TYPE = "UINT1"
+
+    class _db_postgres:
+        GENERATED_SQL = "UINT1 NOT NULL PRIMARY KEY"
 
     @property
     def constraints(self) -> dict:
@@ -23,8 +35,11 @@ class UInt1Field(SmallIntField):
         }
 
 
-class UInt2Field(IntField):
-    SQL_TYPE = "INT"  # UINT2
+class UInt2Field(UIntField):
+    SQL_TYPE = "UINT2"
+
+    class _db_postgres:
+        GENERATED_SQL = "UINT2 NOT NULL PRIMARY KEY"
 
     @property
     def constraints(self) -> dict:
@@ -34,8 +49,11 @@ class UInt2Field(IntField):
         }
 
 
-class UIntField(BigIntField):
-    SQL_TYPE = "BIGINT"  # UINT4
+class UInt4Field(UIntField):
+    SQL_TYPE = "UINT4"
+
+    class _db_postgres:
+        GENERATED_SQL = "UINT4 NOT NULL PRIMARY KEY"
 
     @property
     def constraints(self) -> dict:
@@ -45,8 +63,11 @@ class UIntField(BigIntField):
         }
 
 
-class UInt8Field(BigIntField):
-    SQL_TYPE = "BIGINT"  # UINT8
+class UInt8Field(UIntField):
+    SQL_TYPE = "UINT8"
+
+    class _db_postgres:
+        GENERATED_SQL = "UINT8 NOT NULL PRIMARY KEY"
 
     @property
     def constraints(self) -> dict:
@@ -56,8 +77,11 @@ class UInt8Field(BigIntField):
         }
 
 
-class UInt16Field(BigIntField):
-    SQL_TYPE = "BIGINT"  # UINT16
+class UInt16Field(UIntField):
+    SQL_TYPE = "UINT16"
+
+    class _db_postgres:
+        GENERATED_SQL = "UINT16 NOT NULL PRIMARY KEY"
 
     @property
     def constraints(self) -> dict:

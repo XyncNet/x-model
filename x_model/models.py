@@ -6,7 +6,7 @@ from pydantic import ConfigDict
 from tortoise import Model as TortModel
 from tortoise.signals import Signals
 
-from x_model.field import DatetimeSecField, UIntField
+from x_model.field import DatetimeSecField, IntField
 from x_model.types import BaseUpd
 
 
@@ -16,7 +16,7 @@ class TsTrait:
 
 
 class Model(TortModel):
-    id: int = UIntField(True)
+    id: int = IntField(True)
 
     _in_type: type[BaseUpd] = None  # overridable
     _name: tuple[str] = ("name",)
