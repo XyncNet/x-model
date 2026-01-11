@@ -23,7 +23,7 @@ class Model(TortModel):
     _sorts: tuple[str] = ("-id",)
 
     def __repr__(self, sep: str = " ") -> str:
-        return sep.join(getattr(self, name_fragment) for name_fragment in self._name)
+        return sep.join(str(getattr(self, name_fragment)) for name_fragment in self._name)
 
     # @classmethod
     # def out_type(cls) -> type[BaseModel]:
