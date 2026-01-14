@@ -35,8 +35,9 @@ class Model(TortModel):
     def in_type(cls, with_pk: bool = False) -> type[BaseUpd]:
         if not getattr(cls, cn := "Upd" if with_pk else "New", None):
             fields: list[tuple[str, type] | tuple[str, type, field]] = []
-            for fn in cls._meta.db_fields:
-                if (f := cls._meta.fields_map[fn]).pk and not with_pk:
+            meta = cls._meta
+            for fn in meta.db_fields:
+                if (f := meta.fields_map[fn]).pk and not with_pk:
                     continue
                 if getattr(f, "auto_now", None) or getattr(f, "auto_now_add", None):
                     continue
@@ -44,18 +45,23 @@ class Model(TortModel):
                 if f.default or f.null or (f.allows_generated and not f.pk) or not f.required:
                     fld += (field(default_factory=dict) if f.default == {} else field(default=f.default),)
                 fields.append(fld)
-            # for fn in cls._meta.fk_fields:
-            #     f = cls._meta.fields_map[fn]
+            # for fn in meta.fk_fields:
+            #     f = meta.fields_map[fn]
             #     fld = fn+"_id", int
             #     if f.default or f.allows_generated or f.null or not f.required:
             #         fld += (field(default=f.default),)
             #     fields.append(fld)
             pre_saves = [f.__name__ for f in cls._listeners[Signals.pre_save].get(cls, [])]
             dcl = make_dataclass(cls.__name__ + cn, fields, bases=(BaseUpd,), kw_only=True)
-            dcl._unq = {o + "_id" for o in cls._meta.o2o_fields if o not in pre_saves}
-            dcl._unq |= set((cls._meta.unique_together or ((),))[0])
-            if with_pk:
-                dcl._unq |= {"id"}
+            dcl._unq = {o + "_id" for o in meta.o2o_fields if o not in pre_saves}
+            dcl._unq |= set((meta.unique_together or ((),))[0])
+            dcl._unq |= {
+                k
+                for k, f in meta.fields_map.items()
+                if f.unique and k not in meta.backward_fk_fields | meta.backward_o2o_fields | meta.m2m_fields
+            }
+            if not with_pk:
+                dcl._unq -= {"id"}
             setattr(cls, cn, dcl)
 
         return getattr(cls, cn)
