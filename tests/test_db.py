@@ -3,7 +3,7 @@ from os import getenv as env
 from dotenv import load_dotenv
 from tortoise.backends.asyncpg import AsyncpgDBClient
 
-from x_model import init_db, models
+import x_model
 
 load_dotenv()
 
@@ -11,11 +11,11 @@ PG_DSN = f"postgres://{env('POSTGRES_USER')}:{env('POSTGRES_PASSWORD')}@{env('PO
 
 TORM = {
     "connections": {"default": PG_DSN},
-    "apps": {"models": {"models": [models]}},
+    "apps": {"models": {"models": ["x_model.models"]}},
     "use_tz": False,
     "timezone": "UTC",
 }
 
 
 def test_init_db():
-    assert isinstance(run(init_db(TORM)), AsyncpgDBClient), "DB corrupt"
+    assert isinstance(run(x_model.init_db(TORM)), AsyncpgDBClient), "DB corrupt"
