@@ -4,6 +4,7 @@ from typing import Self
 
 from pydantic import ConfigDict
 from tortoise import Model as TortModel
+from tortoise.fields import Now
 from tortoise.signals import Signals
 
 from x_model.field import DatetimeSecField, IntField
@@ -11,8 +12,8 @@ from x_model.types import BaseUpd
 
 
 class TsTrait:
-    created_at: datetime | None = DatetimeSecField(auto_now_add=True)
-    updated_at: datetime | None = DatetimeSecField(auto_now=True)
+    created_at: datetime | None = DatetimeSecField(auto_now_add=True, db_default=Now())
+    updated_at: datetime | None = DatetimeSecField(auto_now=True, db_default=Now())
 
 
 class Model(TortModel):
